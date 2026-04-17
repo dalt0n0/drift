@@ -20,7 +20,7 @@ pyotp==2.9.0
 qrcode[pil]==7.4.2
 
 # Encryption (vault)
-cryptography==42.0.8
+cryptography==46.0.7
 
 # Redis (rate limiting, caching)
 redis[asyncio]==5.0.5
