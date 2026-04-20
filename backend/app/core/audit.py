@@ -151,10 +151,7 @@ def _sanitize(data: dict) -> dict:
 
 
 async def verify_chain(db: AsyncSession) -> tuple[bool, str]:
-    """
-    Walk all audit entries in insertion order, recompute chain hashes.
-    Returns (True, "") on success or (False, error_description) on tamper detected.
-    """
+    """Walk all audit entries in insertion order, recompute chain hashes."""
     result = await db.execute(
         select(AuditEntry).order_by(AuditEntry.timestamp.asc(), AuditEntry.id.asc())
     )
@@ -172,6 +169,50 @@ async def verify_chain(db: AsyncSession) -> tuple[bool, str]:
         prev_canonical = _canonical_json(_entry_dict(entry))
 
     return True, ""
+
+
+async def run_daily_integrity_check(db: AsyncSession) -> dict:
+    """Run the daily audit chain integrity check and log the result.
+
+    Returns a dict with timestamp, valid, message, and entries_checked.
+    """
+    from sqlalchemy import func as sa_func
+
+    count_result = await db.execute(
+        select(sa_func.count(AuditEntry.id))
+    )
+    entries_checked = count_result.scalar_one()
+
+    is_valid, message = await verify_chain(db)
+
+    now = datetime.now(timezone.utc)
+
+    # Log the integrity check itself as an audit entry
+    await log(
+        db,
+        action="audit.integrity_check",
+        outcome="success" if is_valid else "failure",
+        after_state={
+            "valid": is_valid,
+            "message": message,
+            "entries_checked": entries_checked,
+            "checked_at": now.isoformat(),
+        },
+    )
+
+    logger.info(
+        "audit_integrity_check",
+        valid=is_valid,
+        entries_checked=entries_checked,
+        message=message,
+    )
+
+    return {
+        "timestamp": now.isoformat(),
+        "valid": is_valid,
+        "message": message if message else "Audit chain integrity verified successfully.",
+        "entries_checked": entries_checked,
+    }
 
 
 def get_client_ip(request: Any) -> str:

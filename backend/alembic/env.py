@@ -10,7 +10,16 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.config import get_settings
 from app.database import Base
-from app.models import AuditEntry, RefreshToken, User, APIKey, LoginAttempt  # noqa: F401
+from app.models import (  # noqa: F401
+    AuditEntry,
+    APIKey,
+    Engagement,
+    EngagementRun,
+    LoginAttempt,
+    RefreshToken,
+    ScopeItem,
+    User,
+)
 
 config = context.config
 settings = get_settings()

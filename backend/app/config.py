@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # Registration
     OPEN_REGISTRATION: bool = False
 
+    # Scope
+    ALLOW_RFC1918: bool = False
+    ENABLE_CLOUD_MODULES: bool = False
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
