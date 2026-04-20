@@ -11,7 +11,7 @@ Thank you for your interest in contributing.
 ## Development Setup
 
 ```bash
-git clone https://github.com/dalt0n0/Drift
+git clone https://github.com/dalt0n0/drift
 cd Drift
 cp .env.example .env
 # Edit .env with dev secrets

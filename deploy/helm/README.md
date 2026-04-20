@@ -1,6 +1,6 @@
 # Drift Helm Chart
 
-Kubernetes deployment chart — **Phase 6 deliverable**.
+Kubernetes deployment chart â€” **Phase 6 deliverable**.
 
 ## Planned structure
 
@@ -22,7 +22,7 @@ helm/
 
 ```bash
 helm repo add Drift https://charts.Drift.io
-helm install Drift Drift/Drift \
+helm install Drift Drift/drift \
   --set secrets.secretKey=<value> \
   --set secrets.jwtSecret=<value> \
   --set postgresql.auth.password=<value>
