@@ -1,0 +1,1 @@
+"""ReconStrike backend application."""
