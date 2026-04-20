@@ -1,4 +1,4 @@
-# ReconStrike Architecture
+# Drift Architecture
 
 ## Component Overview
 

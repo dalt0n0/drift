@@ -21,8 +21,8 @@ COPY --from=builder /install /usr/local
 COPY --chown=drift:drift . .
 
 # Runtime directories
-RUN mkdir -p /var/reconstrike/audit /var/reconstrike/uploads && \
-    chown -R drift:drift /var/reconstrike
+RUN mkdir -p /var/Drift/audit /var/Drift/uploads && \
+    chown -R drift:drift /var/Drift
 
 USER drift
 

@@ -44,7 +44,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 _MAX_FAILURES = 5
 _LOCKOUT_MINUTES = 15
-_REFRESH_COOKIE = "reconstrike_refresh"
+_REFRESH_COOKIE = "drift_refresh"
 
 
 def _problem(status_code: int, title: str, detail: str) -> HTTPException:
@@ -192,12 +192,12 @@ async def login(body: LoginRequest, request: Request, response: Response, db: DB
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
     request: Request, response: Response, db: DB,
-    reconstrike_refresh: str | None = Cookie(default=None, alias=_REFRESH_COOKIE),
+    drift_refresh: str | None = Cookie(default=None, alias=_REFRESH_COOKIE),
 ):
-    if not reconstrike_refresh:
+    if not drift_refresh:
         raise _problem(401, "Unauthorized", "No refresh token")
 
-    token_hash = hash_token(reconstrike_refresh)
+    token_hash = hash_token(drift_refresh)
     result = await db.execute(
         select(RefreshToken).where(
             RefreshToken.token_hash == token_hash, RefreshToken.is_revoked == False,
@@ -243,10 +243,10 @@ async def refresh_token(
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     request: Request, response: Response, db: DB, current_user: CurrentUser,
-    reconstrike_refresh: str | None = Cookie(default=None, alias=_REFRESH_COOKIE),
+    drift_refresh: str | None = Cookie(default=None, alias=_REFRESH_COOKIE),
 ):
-    if reconstrike_refresh:
-        token_hash = hash_token(reconstrike_refresh)
+    if drift_refresh:
+        token_hash = hash_token(drift_refresh)
         result = await db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
         rt = result.scalar_one_or_none()
         if rt:

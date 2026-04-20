@@ -73,7 +73,7 @@ async def admin_get_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
-                "type": "https://reconstrike.dev/problems/not-found",
+                "type": "https://Drift.dev/problems/not-found",
                 "title": "Not Found",
                 "status": 404,
                 "detail": "User not found.",
@@ -97,7 +97,7 @@ async def admin_update_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
-                "type": "https://reconstrike.dev/problems/not-found",
+                "type": "https://Drift.dev/problems/not-found",
                 "title": "Not Found",
                 "status": 404,
                 "detail": "User not found.",
@@ -161,7 +161,7 @@ async def admin_delete_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
-                "type": "https://reconstrike.dev/problems/not-found",
+                "type": "https://Drift.dev/problems/not-found",
                 "title": "Not Found",
                 "status": 404,
                 "detail": "User not found.",
@@ -173,7 +173,7 @@ async def admin_delete_user(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "type": "https://reconstrike.dev/problems/bad-request",
+                "type": "https://Drift.dev/problems/bad-request",
                 "title": "Bad Request",
                 "status": 400,
                 "detail": "Cannot deactivate your own account.",

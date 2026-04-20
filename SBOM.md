@@ -2,8 +2,8 @@
 
 ## Overview
 
-ReconStrike generates CycloneDX 1.5 and SPDX 2.3 SBOMs for:
-1. The ReconStrike application (Python deps + OS packages)
+Drift generates CycloneDX 1.5 and SPDX 2.3 SBOMs for:
+1. The Drift application (Python deps + OS packages)
 2. Each Docker image (via Syft)
 3. Per-engagement run metadata (tool versions used)
 
@@ -22,7 +22,7 @@ syft dir:backend -o cyclonedx-json > sbom-app.cdx.json
 syft dir:backend -o spdx-json > sbom-app.spdx.json
 
 # Docker image SBOM
-syft reconstrike:latest -o cyclonedx-json > sbom-image.cdx.json
+syft Drift:latest -o cyclonedx-json > sbom-image.cdx.json
 
 # Vulnerability scan
 grype sbom:sbom-app.cdx.json --fail-on high
@@ -31,8 +31,8 @@ grype sbom:sbom-app.cdx.json --fail-on high
 ## Signing (Phase 6)
 
 ```bash
-cosign sign --key cosign.key reconstrike:latest
-cosign verify --key cosign.pub reconstrike:latest
+cosign sign --key cosign.key Drift:latest
+cosign verify --key cosign.pub Drift:latest
 ```
 
 ## CI Integration

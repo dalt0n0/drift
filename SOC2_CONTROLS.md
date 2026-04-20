@@ -1,6 +1,6 @@
 # SOC 2 Controls Mapping
 
-ReconStrike implements controls aligned to the SOC 2 Trust Services Criteria (TSC).
+Drift implements controls aligned to the SOC 2 Trust Services Criteria (TSC).
 
 ## CC6 — Logical and Physical Access Controls
 

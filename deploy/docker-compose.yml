@@ -5,15 +5,15 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: reconstrike
-      POSTGRES_USER: reconstrike
+      POSTGRES_DB: Drift
+      POSTGRES_USER: Drift
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
       - internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U reconstrike"]
+      test: ["CMD-SHELL", "pg_isready -U Drift"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -41,7 +41,7 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-reconstrike}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-drift}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?err}
     volumes:
       - miniodata:/data
@@ -63,14 +63,14 @@ services:
     restart: unless-stopped
     env_file: ../.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://reconstrike:${POSTGRES_PASSWORD}@db:5432/reconstrike
+      DATABASE_URL: postgresql+asyncpg://Drift:${POSTGRES_PASSWORD}@db:5432/Drift
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/2
       MINIO_ENDPOINT: minio:9000
     volumes:
-      - artifacts:/var/reconstrike/uploads
-      - auditlogs:/var/reconstrike/audit
+      - artifacts:/var/Drift/uploads
+      - auditlogs:/var/Drift/audit
     ports:
       - "8000:8000"
     depends_on:

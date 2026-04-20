@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     )
 
     # App
-    APP_NAME: str = "ReconStrike"
+    APP_NAME: str = "Drift"
     APP_VERSION: str = "0.1.0"
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
@@ -27,14 +27,14 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://reconstrike:changeme@db:5432/reconstrike"
+    DATABASE_URL: str = "postgresql+asyncpg://Drift:changeme@db:5432/Drift"
 
     # Redis
     REDIS_URL: str = "redis://:changeme@redis:6379/0"
 
     # MinIO
     MINIO_ENDPOINT: str = "minio:9000"
-    MINIO_ROOT_USER: str = "reconstrike"
+    MINIO_ROOT_USER: str = "drift"
     MINIO_ROOT_PASSWORD: str = "CHANGE_ME"
     MINIO_BUCKET_ARTIFACTS: str = "artifacts"
     MINIO_BUCKET_REPORTS: str = "reports"
@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     VAULT_MASTER_KEY: str = "CHANGE_ME_FERNET_KEY_BASE64_32_BYTES"
 
     # Audit log
-    AUDIT_LOG_PATH: str = "/var/reconstrike/audit/audit.jsonl"
+    AUDIT_LOG_PATH: str = "/var/Drift/audit/audit.jsonl"
     AUDIT_RETENTION_DAYS: int = 365
 
     # Celery
