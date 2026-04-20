@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://Drift:changeme@db:5432/Drift"
+    DATABASE_URL: str = "postgresql+asyncpg://drift:changeme@db:5432/drift"
 
     # Redis
     REDIS_URL: str = "redis://:changeme@redis:6379/0"
@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     VAULT_MASTER_KEY: str = "CHANGE_ME_FERNET_KEY_BASE64_32_BYTES"
 
     # Audit log
-    AUDIT_LOG_PATH: str = "/var/Drift/audit/audit.jsonl"
+    AUDIT_LOG_PATH: str = "/var/drift/audit/audit.jsonl"
     AUDIT_RETENTION_DAYS: int = 365
 
     # Celery

@@ -32,7 +32,7 @@ Open-source, web-based automated penetration testing platform. Drift wraps best-
 | Backend | FastAPI 0.111 + Python 3.11, async SQLAlchemy 2.x |
 | Task queue | Celery 5 + Redis 7 |
 | Database | PostgreSQL 16 |
-| Object storage | MinIO (S3-compatible) — artifacts, evidence, reports, audit archive |
+| Object storage | MinIO (S3-compatible) â€” artifacts, evidence, reports, audit archive |
 | Auth | JWT (15 min) + rotating refresh tokens, TOTP MFA, API keys, RBAC |
 | Audit log | Hash-chained, tamper-evident, SOC 2 aligned |
 
@@ -90,9 +90,9 @@ Services started:
 | Service | Internal port | Exposed |
 |---------|--------------|---------|
 | api (FastAPI) | 8000 | 8000 |
-| db (PostgreSQL 16) | 5432 | — |
-| redis (Redis 7) | 6379 | — |
-| minio (object storage) | 9000 | — |
+| db (PostgreSQL 16) | 5432 | â€” |
+| redis (Redis 7) | 6379 | â€” |
+| minio (object storage) | 9000 | â€” |
 | minio console | 9001 | 9001 |
 
 ### 4. Run database migrations
@@ -121,7 +121,7 @@ async def main():
         )
         db.add(u)
         await db.commit()
-        print("Admin created — change the password after first login.")
+        print("Admin created â€” change the password after first login.")
 
 asyncio.run(main())
 PYEOF
@@ -152,8 +152,8 @@ Copy `.env.example` to `.env`. Every variable is described below.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `SECRET_KEY` | Yes | — | 32-byte hex string. Used for misc signing. `openssl rand -hex 32` |
-| `JWT_SECRET` | Yes | — | 64-byte hex string. Signs JWT access tokens. `openssl rand -hex 64` |
+| `SECRET_KEY` | Yes | â€” | 32-byte hex string. Used for misc signing. `openssl rand -hex 32` |
+| `JWT_SECRET` | Yes | â€” | 64-byte hex string. Signs JWT access tokens. `openssl rand -hex 64` |
 | `ENVIRONMENT` | | `development` | Set to `production` to enable HSTS and disable debug endpoints |
 | `DEBUG` | | `false` | `true` enables Swagger UI at `/api/docs` and verbose logs. **Never true in production.** |
 | `ALLOWED_ORIGINS` | | `http://localhost:3000` | Comma-separated CORS origins. Production: `https://yourdomain.com` |
@@ -163,14 +163,14 @@ Copy `.env.example` to `.env`. Every variable is described below.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DATABASE_URL` | Yes | `postgresql+asyncpg://drift:<password>@db:5432/drift` — must match `POSTGRES_PASSWORD` |
+| `DATABASE_URL` | Yes | `postgresql+asyncpg://drift:<password>@db:5432/drift` â€” must match `POSTGRES_PASSWORD` |
 | `POSTGRES_PASSWORD` | Yes | PostgreSQL password for the `drift` user |
 
 ### Redis
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `REDIS_URL` | Yes | `redis://:<password>@redis:6379/0` — must match `REDIS_PASSWORD` |
+| `REDIS_URL` | Yes | `redis://:<password>@redis:6379/0` â€” must match `REDIS_PASSWORD` |
 | `REDIS_PASSWORD` | Yes | Redis auth password |
 
 ### MinIO (Object Storage)
@@ -179,7 +179,7 @@ Copy `.env.example` to `.env`. Every variable is described below.
 |----------|----------|---------|-------------|
 | `MINIO_ENDPOINT` | | `minio:9000` | MinIO host:port (internal Docker hostname) |
 | `MINIO_ROOT_USER` | | `drift` | MinIO admin username |
-| `MINIO_ROOT_PASSWORD` | Yes | — | MinIO admin password |
+| `MINIO_ROOT_PASSWORD` | Yes | â€” | MinIO admin password |
 | `MINIO_BUCKET_ARTIFACTS` | | `artifacts` | Bucket for scan evidence and tool output |
 | `MINIO_BUCKET_REPORTS` | | `reports` | Bucket for generated PDF/HTML reports |
 | `MINIO_BUCKET_AUDIT` | | `audit-archive` | Bucket for WORM audit log archival |
@@ -202,8 +202,8 @@ Copy `.env.example` to `.env`. Every variable is described below.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CELERY_BROKER_URL` | `redis://:…@redis:6379/1` | Celery broker |
-| `CELERY_RESULT_BACKEND` | `redis://:…@redis:6379/2` | Celery result backend |
+| `CELERY_BROKER_URL` | `redis://:â€¦@redis:6379/1` | Celery broker |
+| `CELERY_RESULT_BACKEND` | `redis://:â€¦@redis:6379/2` | Celery result backend |
 
 > Celery workers are wired but scan tasks are stubs in Phase 1. Full execution lands in Phase 3.
 
@@ -245,7 +245,7 @@ docker compose -f deploy/docker-compose.yml logs -f api
 
 ### MinIO console
 
-Navigate to `http://<host>:9001` — log in with `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD`.
+Navigate to `http://<host>:9001` â€” log in with `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD`.
 
 ---
 
@@ -281,7 +281,7 @@ uvicorn app.main:app --reload --port 8000
 
 ## Running Tests
 
-No running Postgres needed — tests use an in-memory SQLite database.
+No running Postgres needed â€” tests use an in-memory SQLite database.
 
 ```bash
 cd backend
@@ -305,7 +305,7 @@ Test coverage targets: auth flows, audit chain integrity, RBAC enforcement.
 
 | Role | Description |
 |------|-------------|
-| `admin` | Full access — user management, audit log, all endpoints |
+| `admin` | Full access â€” user management, audit log, all endpoints |
 | `lead` | Manage engagements, view all findings, list users |
 | `tester` | Create and run scans, manage findings |
 | `viewer` | Read-only across all engagements |
@@ -339,8 +339,8 @@ Authorization: Bearer drk_<key>
 
 | Method | Path | Min role | Description |
 |--------|------|----------|-------------|
-| POST | `/auth/login` | — | Login; returns access token, sets refresh cookie |
-| POST | `/auth/refresh` | — | Rotate refresh token |
+| POST | `/auth/login` | â€” | Login; returns access token, sets refresh cookie |
+| POST | `/auth/refresh` | â€” | Rotate refresh token |
 | POST | `/auth/logout` | any | Revoke current session |
 | POST | `/auth/logout-all` | any | Revoke all sessions |
 | POST | `/auth/register` | admin (prod) | Create user |
@@ -408,7 +408,7 @@ Security controls active in all environments:
 - 5-failure brute-force lockout per username+IP per 15 minutes
 - Rotating refresh tokens (httpOnly, Secure, SameSite=Strict)
 - AES-256-GCM field encryption for sensitive data (MFA secrets)
-- Hash-chained audit log — tamper detection via `GET /api/audit/verify`
+- Hash-chained audit log â€” tamper detection via `GET /api/audit/verify`
 - `X-Frame-Options: DENY`, CSP, `X-Content-Type-Options` on all responses
 - Rate limiting via slowapi (100 req/min general, 10 req/min auth)
 
@@ -430,4 +430,4 @@ Security controls active in all environments:
 
 ## License
 
-[AGPLv3](LICENSE) — if you run a modified version as a network service, you must publish your source.
+[AGPLv3](LICENSE) â€” if you run a modified version as a network service, you must publish your source.

@@ -6,7 +6,7 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# ── Runtime ────────────────────────────────────────────────────────────────────
+# â”€â”€ Runtime â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 FROM python:3.11-slim AS runtime
 
 # Non-root user
@@ -21,8 +21,8 @@ COPY --from=builder /install /usr/local
 COPY --chown=drift:drift . .
 
 # Runtime directories
-RUN mkdir -p /var/Drift/audit /var/Drift/uploads && \
-    chown -R drift:drift /var/Drift
+RUN mkdir -p /var/drift/audit /var/drift/uploads && \
+    chown -R drift:drift /var/drift
 
 USER drift
 
