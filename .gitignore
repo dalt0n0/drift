@@ -1,0 +1,44 @@
+# Secrets
+.env
+backend/.env
+nginx/ssl/
+
+# Generated
+docker-compose.override.yml
+*.pyc
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Artifacts
+uploads/
+logs/
+*.log
+*.jsonl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+clients/ts/dist/
+
+# Helm
+deploy/helm/charts/

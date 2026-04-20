@@ -1,0 +1,23 @@
+version: "3.9"
+
+# Isolated test environment with Juice Shop and DVWA targets
+services:
+  juiceshop:
+    image: bkimminich/juice-shop:v16.0.0
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    networks:
+      - testnet
+
+  dvwa:
+    image: vulnerables/web-dvwa:latest
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    networks:
+      - testnet
+
+networks:
+  testnet:
+    driver: bridge
