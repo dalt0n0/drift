@@ -31,9 +31,17 @@ class AuditListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+    pages: int
 
 
 class ChainVerifyResponse(BaseModel):
+    valid: bool
+    message: str
+    entries_checked: int
+
+
+class IntegrityCheckResponse(BaseModel):
+    timestamp: datetime
     valid: bool
     message: str
     entries_checked: int

@@ -26,3 +26,19 @@ class UserUpdateRequest(BaseModel):
     email: EmailStr | None = None
     role: str | None = None
     is_active: bool | None = None
+
+
+class AdminUserUpdateRequest(BaseModel):
+    full_name: str | None = None
+    email: EmailStr | None = None
+    role: str | None = None
+    is_active: bool | None = None
+    password: str | None = None
+
+
+class UserListResponse(BaseModel):
+    items: list[UserResponse]
+    total: int
+    page: int
+    page_size: int
+    pages: int

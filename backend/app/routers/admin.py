@@ -6,12 +6,11 @@ import uuid
 from datetime import datetime, timezone
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.audit import log_audit, run_daily_integrity_check
-from app.core.deps import get_current_user, get_db
+from app.core import audit as audit_svc
+from app.core.deps import CurrentUser, DB
 from app.core.permissions import Role, require_role
 from app.core.security import hash_password
 from app.models.session import RefreshToken
@@ -19,22 +18,21 @@ from app.models.user import User
 from app.schemas.user import AdminUserUpdateRequest, UserListResponse, UserResponse
 
 log = structlog.get_logger(__name__)
-router = APIRouter(
-    prefix="/admin",
-    tags=["admin"],
-    dependencies=[Depends(require_role(Role.ADMIN))],
-)
+router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/users", response_model=UserListResponse)
 async def admin_list_users(
-    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser,
+    db: DB,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    role: str = Query(None),
-    is_active: bool = Query(None),
+    role: str | None = Query(None),
+    is_active: bool | None = Query(None),
 ):
     """Admin: list all users with full details."""
+    require_role(current_user.role, Role.admin)
+
     query = select(User)
     count_query = select(func.count(User.id))
 
@@ -64,16 +62,19 @@ async def admin_list_users(
 @router.get("/users/{user_id}", response_model=UserResponse)
 async def admin_get_user(
     user_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser,
+    db: DB,
 ):
     """Admin: get any user by ID."""
+    require_role(current_user.role, Role.admin)
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
-                "type": "https://drift.dev/problems/not-found",
+                "type": "about:blank",
                 "title": "Not Found",
                 "status": 404,
                 "detail": "User not found.",
@@ -87,17 +88,19 @@ async def admin_update_user(
     user_id: uuid.UUID,
     request: Request,
     body: AdminUserUpdateRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser,
+    db: DB,
 ):
     """Admin: update any user's fields including role."""
+    require_role(current_user.role, Role.admin)
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
-                "type": "https://drift.dev/problems/not-found",
+                "type": "about:blank",
                 "title": "Not Found",
                 "status": 404,
                 "detail": "User not found.",
@@ -119,6 +122,9 @@ async def admin_update_user(
         user.role = body.role
     if body.is_active is not None:
         user.is_active = body.is_active
+    if body.password is not None:
+        user.hashed_password = hash_password(body.password)
+        user.password_changed_at = datetime.now(timezone.utc)
 
     user.updated_at = datetime.now(timezone.utc)
     db.add(user)
@@ -130,17 +136,17 @@ async def admin_update_user(
         "is_active": user.is_active,
     }
 
-    await log_audit(
+    await audit_svc.log(
         db,
         action="admin.user_update",
         actor_id=current_user.id,
-        actor_ip=request.client.host if request.client else None,
+        actor_ip=audit_svc.get_client_ip(request),
         user_agent=request.headers.get("user-agent"),
         resource_type="user",
         resource_id=str(user.id),
         before_state=before_state,
         after_state=after_state,
-        request_id=getattr(request.state, "request_id", None),
+        request_id=request.headers.get("x-request-id"),
         outcome="success",
     )
 
@@ -151,17 +157,19 @@ async def admin_update_user(
 async def admin_delete_user(
     user_id: uuid.UUID,
     request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser,
+    db: DB,
 ):
     """Admin: deactivate (soft-delete) a user."""
+    require_role(current_user.role, Role.admin)
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
-                "type": "https://drift.dev/problems/not-found",
+                "type": "about:blank",
                 "title": "Not Found",
                 "status": 404,
                 "detail": "User not found.",
@@ -173,7 +181,7 @@ async def admin_delete_user(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "type": "https://drift.dev/problems/bad-request",
+                "type": "about:blank",
                 "title": "Bad Request",
                 "status": 400,
                 "detail": "Cannot deactivate your own account.",
@@ -198,33 +206,36 @@ async def admin_delete_user(
         token.revoked_at = now
         db.add(token)
 
-    await log_audit(
+    await audit_svc.log(
         db,
         action="admin.user_deactivate",
         actor_id=current_user.id,
-        actor_ip=request.client.host if request.client else None,
+        actor_ip=audit_svc.get_client_ip(request),
         user_agent=request.headers.get("user-agent"),
         resource_type="user",
         resource_id=str(user.id),
         before_state={"username": user.username, "is_active": True},
         after_state={"username": user.username, "is_active": False},
-        request_id=getattr(request.state, "request_id", None),
+        request_id=request.headers.get("x-request-id"),
         outcome="success",
     )
 
 
 @router.post("/audit/verify-chain")
 async def verify_audit_chain(
-    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser,
+    db: DB,
 ):
     """Admin: trigger audit chain integrity verification."""
-    result = await run_daily_integrity_check(db)
+    require_role(current_user.role, Role.admin)
+    result = await audit_svc.run_daily_integrity_check(db)
     return result
 
 
 @router.get("/health")
-async def admin_health():
+async def admin_health(current_user: CurrentUser):
     """Admin: detailed system health check."""
+    require_role(current_user.role, Role.admin)
     return {
         "status": "healthy",
         "checks": {

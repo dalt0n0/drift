@@ -9,28 +9,24 @@ from typing import Optional
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from sqlalchemy import and_, func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import verify_chain
-from app.core.deps import get_db
+from app.core.deps import CurrentUser, DB
 from app.core.permissions import Role, require_role
 from app.models.audit import AuditEntry
 from app.schemas.audit import AuditEntryResponse, AuditListResponse, IntegrityCheckResponse
 
 log = structlog.get_logger(__name__)
-router = APIRouter(
-    prefix="/audit",
-    tags=["audit"],
-    dependencies=[Depends(require_role(Role.ADMIN))],
-)
+router = APIRouter(prefix="/audit", tags=["audit"])
 
 
 @router.get("", response_model=AuditListResponse)
 async def list_audit_entries(
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser,
+    db: DB,
     actor_id: Optional[UUID] = Query(None),
     action: Optional[str] = Query(None),
     resource_type: Optional[str] = Query(None),
@@ -43,6 +39,8 @@ async def list_audit_entries(
     export_format: Optional[str] = Query(None, pattern="^(json|csv)$"),
 ):
     """List audit log entries with filtering, pagination, and export."""
+    require_role(current_user.role, Role.admin)
+
     filters = []
 
     if actor_id:
@@ -119,24 +117,32 @@ async def list_audit_entries(
 
 @router.get("/integrity", response_model=IntegrityCheckResponse)
 async def check_chain_integrity(
-    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser,
+    db: DB,
 ):
     """Verify the audit log hash chain integrity."""
+    require_role(current_user.role, Role.admin)
+
     is_valid, message = await verify_chain(db)
+    count_result = await db.execute(select(func.count(AuditEntry.id)))
+    entries_checked = count_result.scalar_one()
+
     return IntegrityCheckResponse(
         timestamp=datetime.now(timezone.utc),
         valid=is_valid,
-        message=message,
+        message=message if message else "Audit chain integrity verified successfully.",
+        entries_checked=entries_checked,
     )
 
 
 @router.get("/{entry_id}", response_model=AuditEntryResponse)
 async def get_audit_entry(
     entry_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser,
+    db: DB,
 ):
     """Get a specific audit log entry by ID."""
-    from fastapi import HTTPException, status
+    require_role(current_user.role, Role.admin)
 
     result = await db.execute(select(AuditEntry).where(AuditEntry.id == entry_id))
     entry = result.scalar_one_or_none()
@@ -144,7 +150,7 @@ async def get_audit_entry(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
-                "type": "https://drift.dev/problems/not-found",
+                "type": "about:blank",
                 "title": "Not Found",
                 "status": 404,
                 "detail": "Audit entry not found.",

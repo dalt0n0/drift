@@ -12,6 +12,9 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base, get_db
 from app.main import app
 from app.models.user import User
+from app.models import (  # noqa: F401
+    AuditEntry, Engagement, EngagementRun, ScopeItem, RefreshToken, APIKey, LoginAttempt,
+)
 from app.core.security import hash_password
 
 # Use SQLite in-memory for tests (aiosqlite driver)
