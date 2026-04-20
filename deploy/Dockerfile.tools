@@ -1,0 +1,80 @@
+# syntax=docker/dockerfile:1
+# ──────────────────────────────────────────────────────────────────────
+# Drift Tools Container — Kali-based image with all recon/scanning tools
+# ──────────────────────────────────────────────────────────────────────
+FROM kalilinux/kali-rolling:latest AS tools
+
+LABEL maintainer="drift" \
+      description="Drift recon and scanning tools container"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ── System packages & base tools ─────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    unzip \
+    jq \
+    dnsutils \
+    python3 \
+    python3-pip \
+    python3-venv \
+    golang-go \
+    nmap \
+    masscan \
+    # Networking utilities
+    net-tools \
+    iputils-ping \
+    whois \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Go environment ───────────────────────────────────────────────────
+ENV GOPATH=/root/go
+ENV PATH="${GOPATH}/bin:/usr/local/go/bin:${PATH}"
+
+# ── Go-based tools (install from source for latest versions) ─────────
+RUN go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest && \
+    go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest && \
+    go install github.com/projectdiscovery/httpx/cmd/httpx@latest && \
+    go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest && \
+    go install github.com/tomnomnom/assetfinder@latest && \
+    go install github.com/tomnomnom/waybackurls@latest && \
+    go install github.com/lc/gau/v2/cmd/gau@latest && \
+    # Cleanup Go build cache
+    go clean -cache -modcache
+
+# ── RustScan ─────────────────────────────────────────────────────────
+RUN wget -q https://github.com/RustScan/RustScan/releases/download/2.3.0/rustscan_2.3.0_amd64.deb -O /tmp/rustscan.deb && \
+    dpkg -i /tmp/rustscan.deb || apt-get install -f -y && \
+    rm /tmp/rustscan.deb
+
+# ── OWASP Amass ──────────────────────────────────────────────────────
+RUN go install github.com/owasp-amass/amass/v4/...@master && \
+    go clean -cache -modcache
+
+# ── Python-based tools ───────────────────────────────────────────────
+RUN python3 -m pip install --no-cache-dir --break-system-packages \
+    theHarvester \
+    sherlock-project
+
+# ── Non-root user ────────────────────────────────────────────────────
+RUN groupadd -r -g 1000 drift && \
+    useradd -r -u 1000 -g drift -m -s /bin/bash drift
+
+# ── Copy Go binaries to a standard path ──────────────────────────────
+RUN cp -a ${GOPATH}/bin/* /usr/local/bin/ 2>/dev/null || true
+
+# ── Working directory ────────────────────────────────────────────────
+WORKDIR /work
+RUN chown drift:drift /work
+
+USER drift
+
+# ── Healthcheck: verify at least one key tool is available ───────────
+HEALTHCHECK --interval=60s --timeout=10s --retries=3 \
+    CMD subfinder -version > /dev/null 2>&1 && nmap --version > /dev/null 2>&1
+
+# Default: idle (tools are invoked by the API service via docker exec or RPC)
+CMD ["sleep", "infinity"]
