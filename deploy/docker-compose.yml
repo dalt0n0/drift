@@ -85,12 +85,40 @@ services:
       - no-new-privileges:true
     read_only: false
 
+  tools:
+    build:
+      context: .
+      dockerfile: Dockerfile.tools
+    restart: unless-stopped
+    env_file: ../.env
+    volumes:
+      - artifacts:/var/drift/uploads
+      - toolswork:/work
+    networks:
+      - internal
+      - external
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_RAW       # Required for nmap/masscan raw sockets
+      - NET_ADMIN      # Required for nmap OS detection
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2"
+    depends_on:
+      - api
+
 volumes:
   pgdata:
   redisdata:
   miniodata:
   artifacts:
   auditlogs:
+  toolswork:
 
 networks:
   internal:

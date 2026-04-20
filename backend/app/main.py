@@ -41,6 +41,9 @@ limiter = Limiter(key_func=get_remote_address)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("drift.startup", version=settings.APP_VERSION, env=settings.ENVIRONMENT)
+    # Register all plugins on startup
+    from app.plugins.registry import register_all_plugins
+    register_all_plugins()
     yield
     await engine.dispose()
     logger.info("drift.shutdown")
