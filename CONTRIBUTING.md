@@ -1,4 +1,4 @@
-# Contributing to ReconStrike
+# Contributing to Drift
 
 Thank you for your interest in contributing.
 
@@ -11,8 +11,8 @@ Thank you for your interest in contributing.
 ## Development Setup
 
 ```bash
-git clone https://github.com/dalt0n0/reconstrike
-cd reconstrike
+git clone https://github.com/dalt0n0/Drift
+cd Drift
 cp .env.example .env
 # Edit .env with dev secrets
 

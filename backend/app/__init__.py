@@ -1,1 +1,1 @@
-"""ReconStrike backend application."""
+"""Drift backend application."""

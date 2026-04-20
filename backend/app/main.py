@@ -27,10 +27,10 @@ limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("reconstrike_startup", version=settings.APP_VERSION, env=settings.ENVIRONMENT)
+    logger.info("drift.startup", version=settings.APP_VERSION, env=settings.ENVIRONMENT)
     yield
     await engine.dispose()
-    logger.info("reconstrike_shutdown")
+    logger.info("drift.shutdown")
 
 
 def create_app() -> FastAPI:

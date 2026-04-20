@@ -1,1 +1,1 @@
-"""Test suite for ReconStrike backend."""
+"""Test suite for Drift backend."""

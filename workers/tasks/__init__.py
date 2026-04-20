@@ -1,4 +1,4 @@
-"""Celery tasks for ReconStrike workers.
+"""Celery tasks for Drift workers.
 
 Phase 1: Audit integrity check task.
 Phase 2: Scan execution, report generation, notification tasks.

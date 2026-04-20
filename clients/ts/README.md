@@ -1,4 +1,4 @@
-# ReconStrike TypeScript Client
+# Drift TypeScript Client
 
 Auto-generated from the OpenAPI spec at `/api/openapi.json`.
 
@@ -12,9 +12,9 @@ npm run generate
 ## Usage
 
 ```typescript
-import { ReconStrikeClient } from './src';
+import { DriftClient } from './src';
 
-const client = new ReconStrikeClient({
+const client = new DriftClient({
   baseUrl: 'http://localhost:8000',
   token: 'your-access-token',
 });

@@ -61,7 +61,7 @@ async def test_refresh_token_rotation(client: AsyncClient, tester_user):
         "/api/auth/login", json={"username": "tester_user", "password": "TestPass123!"}
     )
     assert resp.status_code == 200
-    assert "reconstrike_refresh" in resp.cookies
+    assert "drift_refresh" in resp.cookies
 
     resp2 = await client.post("/api/auth/refresh")
     assert resp2.status_code == 200
@@ -69,7 +69,7 @@ async def test_refresh_token_rotation(client: AsyncClient, tester_user):
     assert new_token
 
     # Old refresh cookie replaced
-    assert "reconstrike_refresh" in resp2.cookies
+    assert "drift_refresh" in resp2.cookies
 
 
 async def test_logout_clears_cookie(client: AsyncClient, tester_user):

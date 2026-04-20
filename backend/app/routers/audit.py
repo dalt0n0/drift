@@ -144,7 +144,7 @@ async def get_audit_entry(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
-                "type": "https://reconstrike.dev/problems/not-found",
+                "type": "https://Drift.dev/problems/not-found",
                 "title": "Not Found",
                 "status": 404,
                 "detail": "Audit entry not found.",

@@ -1,7 +1,7 @@
-# ReconStrike Threat Model
+# Drift Threat Model
 
 ## Scope
-This document covers the ReconStrike application itself (not the target systems being tested).
+This document covers the Drift application itself (not the target systems being tested).
 
 ## Trust Boundaries
 1. Browser ↔ Nginx (TLS)
