@@ -1,0 +1,54 @@
+version: "3.9"
+
+# ── E2E target environment ────────────────────────────────────────────────────
+# Spin up intentionally vulnerable apps as scan targets for the E2E suite.
+# Run alongside the main stack:
+#   docker compose -f deploy/docker-compose.yml \
+#                  -f deploy/docker-compose.e2e.yml up -d
+
+services:
+  # OWASP Juice Shop — modern vulnerable web app
+  juiceshop:
+    image: bkimminich/juice-shop:latest
+    container_name: drift-e2e-juiceshop
+    ports:
+      - "3180:3000"
+    restart: unless-stopped
+    networks:
+      - drift-e2e
+
+  # DVWA — classic PHP vulnerable app
+  dvwa:
+    image: ghcr.io/digininja/dvwa:latest
+    container_name: drift-e2e-dvwa
+    environment:
+      DB_SERVER: dvwa-db
+      DB_DATABASE: dvwa
+      DB_USER: dvwa
+      DB_PASSWORD: p@ssw0rd
+      RECAPTCHA_PRIV_KEY: ""
+      RECAPTCHA_PUB_KEY: ""
+    ports:
+      - "3181:80"
+    depends_on:
+      - dvwa-db
+    restart: unless-stopped
+    networks:
+      - drift-e2e
+
+  dvwa-db:
+    image: mariadb:10.11
+    container_name: drift-e2e-dvwa-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: dvwa
+      MYSQL_USER: dvwa
+      MYSQL_PASSWORD: p@ssw0rd
+    restart: unless-stopped
+    networks:
+      - drift-e2e
+
+networks:
+  drift-e2e:
+    name: drift-e2e
+    driver: bridge
