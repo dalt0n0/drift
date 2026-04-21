@@ -9,14 +9,15 @@ LABEL maintainer="drift" \
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# ── Pin apt to the authoritative Kali mirror; avoid flaky CDN redirects ──
-RUN printf 'deb http://http.kali.org/kali kali-rolling main contrib non-free non-free-firmware\n' \
+# ── Use kali.download directly — avoids http.kali.org GeoDNS redirects
+#    that route through mirror.us.cdn-perfprod.com (currently unreachable) ──
+RUN printf 'deb https://kali.download/kali kali-rolling main contrib non-free non-free-firmware\n' \
         > /etc/apt/sources.list && \
-    printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' \
+    printf 'Acquire::Retries "10";\nAcquire::http::Timeout "60";\nAcquire::https::Timeout "60";\n' \
         > /etc/apt/apt.conf.d/99drift-retries
 
 # ── System packages & base tools ─────────────────────────────────────
-RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     wget \
