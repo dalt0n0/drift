@@ -18,6 +18,7 @@ from app.models import (  # noqa: F401
     APIKey,
     Engagement,
     EngagementRun,
+    Finding,
     LoginAttempt,
     RefreshToken,
     ScopeItem,
@@ -27,7 +28,9 @@ from app.routers import admin as admin_router
 from app.routers import audit as audit_router
 from app.routers import auth as auth_router
 from app.routers import engagements as engagements_router
+from app.routers import findings as findings_router
 from app.routers import modules as modules_router
+from app.routers import reports as reports_router
 from app.routers import runs as runs_router
 from app.routers import scope as scope_router
 from app.routers import users as users_router
@@ -82,6 +85,8 @@ def create_app() -> FastAPI:
     app.include_router(engagements_router.router, prefix="/api")
     app.include_router(scope_router.router, prefix="/api")
     app.include_router(runs_router.router, prefix="/api")
+    app.include_router(findings_router.router, prefix="/api")
+    app.include_router(reports_router.router, prefix="/api")
     app.include_router(modules_router.router, prefix="/api")
 
     # -- Health --

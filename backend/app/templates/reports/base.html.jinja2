@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }} — Drift</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 11pt; color: #1a1a1a; line-height: 1.5; }
+    @page { margin: 2cm 2.5cm; }
+
+    /* Cover */
+    .cover { page-break-after: always; display: flex; flex-direction: column; justify-content: center; min-height: 100vh; }
+    .cover-title { font-size: 28pt; font-weight: 700; color: #0f172a; margin-bottom: 0.5rem; }
+    .cover-subtitle { font-size: 14pt; color: #475569; margin-bottom: 2rem; }
+    .cover-meta { font-size: 10pt; color: #64748b; border-top: 2px solid #e2e8f0; padding-top: 1rem; }
+    .cover-logo { font-size: 20pt; font-weight: 900; color: #3b82f6; letter-spacing: -1px; margin-bottom: 3rem; }
+
+    /* Sections */
+    h1 { font-size: 18pt; font-weight: 700; color: #0f172a; margin: 1.5rem 0 0.75rem; border-bottom: 2px solid #3b82f6; padding-bottom: 0.3rem; }
+    h2 { font-size: 14pt; font-weight: 600; color: #1e293b; margin: 1.2rem 0 0.5rem; }
+    h3 { font-size: 12pt; font-weight: 600; color: #334155; margin: 1rem 0 0.4rem; }
+    p { margin-bottom: 0.6rem; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 9.5pt; }
+    th { background: #1e293b; color: #f8fafc; padding: 6px 10px; text-align: left; font-weight: 600; }
+    td { padding: 5px 10px; border-bottom: 1px solid #e2e8f0; }
+    tr:nth-child(even) td { background: #f8fafc; }
+
+    /* Severity badges */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .badge-critical { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .badge-high     { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .badge-medium   { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .badge-low      { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .badge-info     { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+    /* Finding card */
+    .finding { border: 1px solid #e2e8f0; border-radius: 6px; padding: 1rem; margin: 0.75rem 0; page-break-inside: avoid; }
+    .finding-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
+    .finding-title { font-size: 11pt; font-weight: 600; color: #0f172a; }
+    .finding-meta { font-size: 8.5pt; color: #64748b; margin: 0.25rem 0; }
+    .finding-body { font-size: 9.5pt; color: #334155; }
+
+    /* Stats box */
+    .stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; margin: 1rem 0; }
+    .stat-box { border-radius: 6px; padding: 0.75rem; text-align: center; }
+    .stat-box .count { font-size: 20pt; font-weight: 700; }
+    .stat-box .label { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-critical { background: #fef2f2; color: #b91c1c; }
+    .stat-high { background: #fff7ed; color: #c2410c; }
+    .stat-medium { background: #fffbeb; color: #92400e; }
+    .stat-low { background: #f0fdf4; color: #15803d; }
+    .stat-info { background: #eff6ff; color: #1d4ed8; }
+
+    /* Footer */
+    @page { @bottom-center { content: "CONFIDENTIAL — " string(title) " — Page " counter(page) " of " counter(pages); font-size: 8pt; color: #94a3b8; } }
+
+    /* Page break helpers */
+    .page-break { page-break-after: always; }
+    pre { font-family: "Courier New", monospace; font-size: 8pt; background: #f1f5f9; padding: 0.5rem; border-radius: 4px; white-space: pre-wrap; word-break: break-all; overflow: hidden; }
+    code { font-family: "Courier New", monospace; font-size: 8.5pt; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+    .redacted { background: #1a1a1a; color: #1a1a1a; border-radius: 2px; }
+  </style>
+</head>
+<body>
+{% block body %}{% endblock %}
+</body>
+</html>

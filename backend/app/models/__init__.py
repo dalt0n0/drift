@@ -1,5 +1,6 @@
 from app.models.audit import AuditEntry
 from app.models.engagement import Engagement
+from app.models.finding import Finding
 from app.models.run import EngagementRun
 from app.models.scope import ScopeItem
 from app.models.session import RefreshToken
@@ -14,4 +15,5 @@ __all__ = [
     "Engagement",
     "ScopeItem",
     "EngagementRun",
+    "Finding",
 ]
