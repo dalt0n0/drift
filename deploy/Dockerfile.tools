@@ -9,18 +9,28 @@ LABEL maintainer="drift" \
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# ── Lock apt to kali.download only.
-#    The base image ships sources.list.d/ entries with mirror lists that
-#    redirect to mirror.us.cdn-perfprod.com (currently dead).  Wipe them all,
-#    then disable HTTP redirects so apt never follows a 302 to a CDN node. ──
+# ── Bootstrap CA certificates ─────────────────────────────────────────
+#    Kali's base image ships with an incomplete/outdated CA bundle, so HTTPS
+#    to kali.download (Cloudflare) fails certificate verification before
+#    ca-certificates is installed.  Wipe all existing sources, bootstrap
+#    ca-certificates with SSL peer-verify disabled, then re-enable for all
+#    subsequent operations.
 RUN rm -f /etc/apt/sources.list /etc/apt/sources.list.d/*.list \
             /etc/apt/sources.list.d/*.sources && \
     printf 'deb https://kali.download/kali kali-rolling main contrib non-free non-free-firmware\n' \
         > /etc/apt/sources.list && \
-    printf 'Acquire::Retries "10";\n\
-Acquire::http::Timeout "60";\n\
-Acquire::https::Timeout "60";\n\
-Acquire::http::AllowRedirect "false";\n' \
+    apt-get \
+        -o Acquire::https::Verify-Peer=false \
+        -o Acquire::https::Verify-Host=false \
+        -o Acquire::Retries=5 \
+        update -qq && \
+    apt-get \
+        -o Acquire::https::Verify-Peer=false \
+        -o Acquire::https::Verify-Host=false \
+        install -y --no-install-recommends ca-certificates && \
+    update-ca-certificates && \
+    rm -rf /var/lib/apt/lists/* && \
+    printf 'Acquire::Retries "10";\nAcquire::http::Timeout "60";\nAcquire::https::Timeout "60";\n' \
         > /etc/apt/apt.conf.d/99drift-mirror
 
 # ── System packages & base tools ─────────────────────────────────────
