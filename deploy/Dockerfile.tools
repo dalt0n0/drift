@@ -5,7 +5,7 @@
 FROM kalilinux/kali-rolling:latest AS tools
 
 LABEL maintainer="drift" \
-      description="Drift recon and scanning tools container"
+      description="Drift recon, scanning, web, and network tools container"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -24,17 +24,33 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     golang-go \
     nmap \
     masscan \
-    # Networking utilities
+    # Network tools
     net-tools \
     iputils-ping \
     whois \
+    # Web tools (apt)
+    nikto \
+    wapiti \
+    # TLS tools
+    testssl.sh \
+    openssl \
+    # Network enumeration
+    smbclient \
+    smbmap \
+    ldap-utils \
+    onesixtyone \
+    enum4linux \
+    python3-impacket \
+    # Misc
+    chromium \
+    chromium-driver \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Go environment ───────────────────────────────────────────────────
 ENV GOPATH=/root/go
 ENV PATH="${GOPATH}/bin:/usr/local/go/bin:${PATH}"
 
-# ── Go-based tools (install from source for latest versions) ─────────
+# ── Go-based tools: recon ────────────────────────────────────────────
 RUN go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest && \
     go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest && \
     go install github.com/projectdiscovery/httpx/cmd/httpx@latest && \
@@ -42,7 +58,23 @@ RUN go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest && 
     go install github.com/tomnomnom/assetfinder@latest && \
     go install github.com/tomnomnom/waybackurls@latest && \
     go install github.com/lc/gau/v2/cmd/gau@latest && \
-    # Cleanup Go build cache
+    go clean -cache -modcache
+
+# ── Go-based tools: web ──────────────────────────────────────────────
+RUN go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest && \
+    go install github.com/projectdiscovery/katana/cmd/katana@latest && \
+    go install github.com/ffuf/ffuf/v2@latest && \
+    go install github.com/OJ/gobuster/v3@latest && \
+    go install github.com/epi052/feroxbuster@latest 2>/dev/null || \
+    # feroxbuster is Rust-based; install via cargo or prebuilt binary
+    curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh | bash 2>/dev/null || true && \
+    go clean -cache -modcache
+
+# ── Update Nuclei templates ───────────────────────────────────────────
+RUN nuclei -update-templates 2>/dev/null || true
+
+# ── OWASP Amass ──────────────────────────────────────────────────────
+RUN go install github.com/owasp-amass/amass/v4/...@master && \
     go clean -cache -modcache
 
 # ── RustScan ─────────────────────────────────────────────────────────
@@ -50,31 +82,58 @@ RUN wget -q https://github.com/RustScan/RustScan/releases/download/2.3.0/rustsca
     dpkg -i /tmp/rustscan.deb || apt-get install -f -y && \
     rm /tmp/rustscan.deb
 
-# ── OWASP Amass ──────────────────────────────────────────────────────
-RUN go install github.com/owasp-amass/amass/v4/...@master && \
-    go clean -cache -modcache
+# ── enum4linux-ng ─────────────────────────────────────────────────────
+RUN git clone --depth 1 https://github.com/cddmp/enum4linux-ng /opt/enum4linux-ng && \
+    pip3 install --no-cache-dir --break-system-packages -r /opt/enum4linux-ng/requirements.txt && \
+    ln -sf /opt/enum4linux-ng/enum4linux-ng.py /usr/local/bin/enum4linux-ng
+
+# ── NetExec (nxc) ─────────────────────────────────────────────────────
+RUN pip3 install --no-cache-dir --break-system-packages netexec 2>/dev/null || \
+    pip3 install --no-cache-dir --break-system-packages crackmapexec 2>/dev/null || true
+
+# ── OWASP ZAP ────────────────────────────────────────────────────────
+RUN wget -q https://github.com/zaproxy/zaproxy/releases/download/v2.14.0/ZAP_2.14.0_Linux.tar.gz \
+        -O /tmp/zap.tar.gz && \
+    tar xzf /tmp/zap.tar.gz -C /opt/ && \
+    mv /opt/ZAP_2.14.0 /opt/zap && \
+    ln -sf /opt/zap/zap.sh /usr/local/bin/zap.sh && \
+    ln -sf /opt/zap/zap-baseline.py /usr/local/bin/zap-baseline.py && \
+    ln -sf /opt/zap/zap-full-scan.py /usr/local/bin/zap-full-scan.py && \
+    rm /tmp/zap.tar.gz
 
 # ── Python-based tools ───────────────────────────────────────────────
 RUN python3 -m pip install --no-cache-dir --break-system-packages \
     theHarvester \
-    sherlock-project
+    sherlock-project \
+    sslyze \
+    playwright
 
-# ── Non-root user ────────────────────────────────────────────────────
+# ── Playwright browsers ───────────────────────────────────────────────
+RUN playwright install chromium && \
+    playwright install-deps chromium 2>/dev/null || true
+
+# ── sslyze ────────────────────────────────────────────────────────────
+# sslyze installed via pip above; verify it works
+RUN sslyze --version 2>/dev/null || true
+
+# ── Copy Go binaries to standard path ─────────────────────────────────
+RUN cp -a ${GOPATH}/bin/* /usr/local/bin/ 2>/dev/null || true
+
+# ── Non-root user ─────────────────────────────────────────────────────
 RUN groupadd -r -g 1000 drift && \
     useradd -r -u 1000 -g drift -m -s /bin/bash drift
 
-# ── Copy Go binaries to a standard path ──────────────────────────────
-RUN cp -a ${GOPATH}/bin/* /usr/local/bin/ 2>/dev/null || true
-
-# ── Working directory ────────────────────────────────────────────────
+# ── Working directory ─────────────────────────────────────────────────
 WORKDIR /work
 RUN chown drift:drift /work
 
 USER drift
 
-# ── Healthcheck: verify at least one key tool is available ───────────
-HEALTHCHECK --interval=60s --timeout=10s --retries=3 \
-    CMD subfinder -version > /dev/null 2>&1 && nmap --version > /dev/null 2>&1
+# ── Healthcheck ───────────────────────────────────────────────────────
+HEALTHCHECK --interval=60s --timeout=15s --retries=3 \
+    CMD subfinder -version > /dev/null 2>&1 && \
+        nuclei -version > /dev/null 2>&1 && \
+        nmap --version > /dev/null 2>&1
 
 # Default: idle (tools are invoked by the API service via docker exec or RPC)
 CMD ["sleep", "infinity"]
