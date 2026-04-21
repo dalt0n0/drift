@@ -119,10 +119,13 @@ RUN pip3 install --no-cache-dir --break-system-packages netexec 2>/dev/null || \
     pip3 install --no-cache-dir --break-system-packages crackmapexec 2>/dev/null || true
 
 # ── OWASP ZAP ────────────────────────────────────────────────────────
-RUN wget -q https://github.com/zaproxy/zaproxy/releases/download/v2.14.0/ZAP_2.14.0_Linux.tar.gz \
+# Resolve latest release dynamically so the tag never rots.
+RUN ZAP_VER=$(curl -fsSL https://api.github.com/repos/zaproxy/zaproxy/releases/latest \
+        | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/') && \
+    wget -q "https://github.com/zaproxy/zaproxy/releases/download/v${ZAP_VER}/ZAP_${ZAP_VER}_Linux.tar.gz" \
         -O /tmp/zap.tar.gz && \
     tar xzf /tmp/zap.tar.gz -C /opt/ && \
-    mv /opt/ZAP_2.14.0 /opt/zap && \
+    mv /opt/ZAP_${ZAP_VER} /opt/zap && \
     ln -sf /opt/zap/zap.sh /usr/local/bin/zap.sh && \
     ln -sf /opt/zap/zap-baseline.py /usr/local/bin/zap-baseline.py && \
     ln -sf /opt/zap/zap-full-scan.py /usr/local/bin/zap-full-scan.py && \
