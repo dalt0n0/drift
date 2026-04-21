@@ -7,31 +7,179 @@ BOLD="\033[1m"
 GREEN="\033[32m"
 YELLOW="\033[33m"
 RED="\033[31m"
+CYAN="\033[36m"
 RESET="\033[0m"
 
 info()  { echo -e "${GREEN}[+]${RESET} $*"; }
 warn()  { echo -e "${YELLOW}[!]${RESET} $*"; }
+step()  { echo -e "${CYAN}[>]${RESET} $*"; }
 fatal() { echo -e "${RED}[x]${RESET} $*"; exit 1; }
 
 cd "$(dirname "$0")/.."
 ROOT_DIR="$(pwd)"
 
 echo ""
-echo -e "${BOLD}Drift -- Setup${RESET}"
+echo -e "${BOLD}╔══════════════════════════════════════╗${RESET}"
+echo -e "${BOLD}║         Drift  —  Setup              ║${RESET}"
+echo -e "${BOLD}╚══════════════════════════════════════╝${RESET}"
 echo ""
 
-# Alias: every compose command uses --env-file so vars are found at project root
-DC="docker compose -f deploy/docker-compose.yml --env-file .env"
+# ── OS detection ──────────────────────────────────────────────────────────────
+detect_os() {
+    if [[ -f /etc/os-release ]]; then
+        . /etc/os-release
+        echo "${ID}"
+    elif command -v uname >/dev/null 2>&1; then
+        uname -s | tr '[:upper:]' '[:lower:]'
+    else
+        echo "unknown"
+    fi
+}
 
-# ── Check dependencies ────────────────────────────────────────────────────────
-command -v docker  >/dev/null 2>&1 || fatal "Docker not found. Install: https://docs.docker.com/get-docker/"
-command -v python3 >/dev/null 2>&1 || fatal "python3 not found."
-docker compose version >/dev/null 2>&1 || fatal "Docker Compose v2 not found."
+OS=$(detect_os)
+ARCH=$(uname -m)
+
+info "Detected OS: ${OS} (${ARCH})"
+
+# ── Install Docker ────────────────────────────────────────────────────────────
+install_docker() {
+    step "Installing Docker Engine..."
+
+    case "${OS}" in
+        ubuntu|debian|linuxmint|pop|kali|parrot)
+            # Official Docker apt repository
+            apt-get update -qq
+            apt-get install -y -qq ca-certificates curl gnupg lsb-release
+
+            install -m 0755 -d /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/${OS}/gpg \
+                | gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null || \
+            # Fallback: use debian key for derivatives that share repos
+            curl -fsSL https://download.docker.com/linux/debian/gpg \
+                | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+            chmod a+r /etc/apt/keyrings/docker.gpg
+
+            # Determine the codename — use UBUNTU_CODENAME or VERSION_CODENAME
+            CODENAME="${UBUNTU_CODENAME:-${VERSION_CODENAME:-$(lsb_release -cs)}}"
+            # Kali and some derivatives don't have Docker packages; use debian stable
+            if [[ "${OS}" == "kali" || "${OS}" == "parrot" ]]; then
+                CODENAME="bookworm"
+                REPO_OS="debian"
+            else
+                REPO_OS="${OS}"
+            fi
+
+            echo \
+              "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+              https://download.docker.com/linux/${REPO_OS} ${CODENAME} stable" \
+              > /etc/apt/sources.list.d/docker.list
+
+            apt-get update -qq
+            apt-get install -y -qq \
+                docker-ce docker-ce-cli containerd.io \
+                docker-buildx-plugin docker-compose-plugin
+            ;;
+
+        fedora)
+            dnf -y -q install dnf-plugins-core
+            dnf config-manager --add-repo \
+                https://download.docker.com/linux/fedora/docker-ce.repo
+            dnf -y -q install docker-ce docker-ce-cli containerd.io \
+                docker-buildx-plugin docker-compose-plugin
+            ;;
+
+        centos|rhel|rocky|almalinux)
+            yum install -y -q yum-utils
+            yum-config-manager --add-repo \
+                https://download.docker.com/linux/centos/docker-ce.repo
+            yum install -y -q docker-ce docker-ce-cli containerd.io \
+                docker-buildx-plugin docker-compose-plugin
+            ;;
+
+        arch|manjaro|endeavouros)
+            pacman -Sy --noconfirm docker docker-compose
+            ;;
+
+        opensuse*|sles)
+            zypper -q install -y docker docker-compose
+            ;;
+
+        darwin)
+            fatal "macOS detected. Please install Docker Desktop manually: https://docs.docker.com/desktop/mac/install/"
+            ;;
+
+        *)
+            warn "Unknown OS '${OS}'. Attempting generic install via get.docker.com..."
+            curl -fsSL https://get.docker.com | sh
+            ;;
+    esac
+
+    # Enable and start Docker
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl enable docker --now 2>/dev/null || true
+    fi
+
+    info "Docker installed: $(docker --version)"
+}
+
+install_docker_compose_standalone() {
+    # Fallback: install docker-compose v2 standalone binary if plugin not present
+    step "Installing Docker Compose standalone plugin..."
+    COMPOSE_VERSION=$(curl -fsSL https://api.github.com/repos/docker/compose/releases/latest \
+        | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
+    COMPOSE_URL="https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)"
+    curl -fsSL "${COMPOSE_URL}" -o /usr/local/lib/docker/cli-plugins/docker-compose
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+    info "Docker Compose installed: $(docker compose version)"
+}
+
+add_user_to_docker_group() {
+    # Add invoking user (not root) to the docker group
+    local invoking_user="${SUDO_USER:-${USER:-}}"
+    if [[ -n "${invoking_user}" && "${invoking_user}" != "root" ]]; then
+        if ! groups "${invoking_user}" 2>/dev/null | grep -q docker; then
+            usermod -aG docker "${invoking_user}"
+            warn "Added '${invoking_user}' to the docker group."
+            warn "You may need to log out and back in for this to take effect,"
+            warn "or run: newgrp docker"
+        fi
+    fi
+}
+
+# ── Check / install Docker ────────────────────────────────────────────────────
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    info "Docker already installed: $(docker --version)"
+    info "Docker Compose: $(docker compose version)"
+else
+    if [[ "${EUID}" -ne 0 ]]; then
+        warn "Docker not found. Re-run with sudo to install automatically:"
+        warn "  sudo bash scripts/setup.sh"
+        fatal "Docker is required. Install it first: https://docs.docker.com/get-docker/"
+    fi
+
+    install_docker
+
+    # Verify compose plugin; install standalone if missing
+    if ! docker compose version >/dev/null 2>&1; then
+        mkdir -p /usr/local/lib/docker/cli-plugins
+        install_docker_compose_standalone
+    fi
+
+    add_user_to_docker_group
+fi
+
+# ── Check python3 (needed for secret generation) ─────────────────────────────
+command -v python3 >/dev/null 2>&1 || fatal "python3 not found. Install python3 and re-run."
+command -v openssl >/dev/null 2>&1 || fatal "openssl not found. Install openssl and re-run."
+
 info "Docker: $(docker --version)"
+
+# ── Alias for all compose commands ───────────────────────────────────────────
+DC="docker compose -f deploy/docker-compose.yml --env-file .env"
 
 # ── Generate .env ─────────────────────────────────────────────────────────────
 if [[ -f "$ROOT_DIR/.env" ]]; then
-    warn ".env already exists -- skipping generation. Delete it and re-run to regenerate."
+    warn ".env already exists — skipping generation. Delete it and re-run to regenerate."
 else
     info "Generating .env with auto-generated secrets..."
 
@@ -78,7 +226,7 @@ ENVEOF
 fi
 
 # ── Build images ──────────────────────────────────────────────────────────────
-info "Building Docker images..."
+info "Building Docker images (this will take a few minutes on first run)..."
 $DC build
 
 # ── Start DB + Redis + MinIO first ────────────────────────────────────────────
@@ -105,7 +253,7 @@ $DC run --rm api alembic upgrade head
 ADMIN_PASS=$(openssl rand -base64 16 | tr -d '/+=' | head -c 16)
 
 info "Creating initial admin user..."
-$DC run --rm api python3 - <<PYEOF 2>/dev/null || warn "Admin user may already exist -- skipping."
+$DC run --rm api python3 - <<PYEOF 2>/dev/null || warn "Admin user may already exist — skipping."
 import asyncio
 from app.database import AsyncSessionLocal
 from app.models.user import User
@@ -131,19 +279,21 @@ PYEOF
 info "Starting all services..."
 $DC up -d
 
+HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
+
 echo ""
-echo "================================================="
-echo " Drift is running!"
-echo "================================================="
+echo -e "${BOLD}╔══════════════════════════════════════════════════╗${RESET}"
+echo -e "${BOLD}║             Drift is running!                    ║${RESET}"
+echo -e "${BOLD}╚══════════════════════════════════════════════════╝${RESET}"
 echo ""
-echo "  API:           http://$(hostname -I | awk '{print $1}'):8000"
-echo "  Health check:  http://$(hostname -I | awk '{print $1}'):8000/api/health"
-echo "  MinIO console: http://$(hostname -I | awk '{print $1}'):9001"
+echo -e "  API:           ${CYAN}http://${HOST_IP}:8000${RESET}"
+echo -e "  Health check:  ${CYAN}http://${HOST_IP}:8000/api/health${RESET}"
+echo -e "  MinIO console: ${CYAN}http://${HOST_IP}:9001${RESET}"
 echo ""
-echo "  Username: admin"
-echo "  Password: ${ADMIN_PASS}"
+echo -e "  Username: ${BOLD}admin${RESET}"
+echo -e "  Password: ${BOLD}${ADMIN_PASS}${RESET}"
 echo ""
-warn "Save that password -- it won't be shown again."
+warn "Save that password — it won't be shown again."
 warn "For production: set ENVIRONMENT=production and ALLOWED_ORIGINS in .env"
-warn "For production: put nginx in front with a real TLS cert."
+warn "For production: put a reverse proxy with TLS in front."
 echo ""
