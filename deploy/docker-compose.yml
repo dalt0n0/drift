@@ -85,6 +85,19 @@ services:
       - no-new-privileges:true
     read_only: false
 
+  ui:
+    build:
+      context: ../clients/ts
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - internal
+      - external
+    depends_on:
+      - api
+
   tools:
     build:
       context: .
