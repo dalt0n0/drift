@@ -225,6 +225,13 @@ ENVEOF
     warn "Edit .env to set ALLOWED_ORIGINS and ENVIRONMENT=production before going live."
 fi
 
+# ── Check Node.js (needed for UI build inside Docker, or local dev) ───────────
+if command -v node >/dev/null 2>&1; then
+    info "Node.js: $(node --version)"
+else
+    warn "Node.js not found — the UI will still build inside Docker, but local 'npm run dev' won't work."
+fi
+
 # ── Build images ──────────────────────────────────────────────────────────────
 info "Building Docker images (this will take a few minutes on first run)..."
 $DC build
@@ -286,6 +293,7 @@ echo -e "${BOLD}╔════════════════════�
 echo -e "${BOLD}║             Drift is running!                    ║${RESET}"
 echo -e "${BOLD}╚══════════════════════════════════════════════════╝${RESET}"
 echo ""
+echo -e "  UI:            ${CYAN}http://${HOST_IP}:3000${RESET}"
 echo -e "  API:           ${CYAN}http://${HOST_IP}:8000${RESET}"
 echo -e "  Health check:  ${CYAN}http://${HOST_IP}:8000/api/health${RESET}"
 echo -e "  MinIO console: ${CYAN}http://${HOST_IP}:9001${RESET}"

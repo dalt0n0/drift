@@ -9,8 +9,8 @@ DC="docker compose -f deploy/docker-compose.yml --env-file .env"
 echo "[+] Pulling latest..."
 git pull
 
-echo "[+] Rebuilding API image..."
-$DC build api
+echo "[+] Rebuilding images..."
+$DC build api ui
 
 echo "[+] Running migrations..."
 $DC run --rm api alembic upgrade head
@@ -18,4 +18,4 @@ $DC run --rm api alembic upgrade head
 echo "[+] Restarting..."
 $DC up -d
 
-echo "[+] Done."
+echo "[+] Done. UI → http://localhost:3000"
