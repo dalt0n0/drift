@@ -1,0 +1,82 @@
+{{- if .Values.cronjobs.auditIntegrityCheck.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "drift.fullname" . }}-audit-check
+  labels:
+    {{- include "drift.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cronjobs.auditIntegrityCheck.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "drift.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: cronjob-audit
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: {{ include "drift.serviceAccountName" . }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: audit-check
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: {{ toJson .Values.cronjobs.auditIntegrityCheck.command }}
+              securityContext:
+                {{- toYaml .Values.securityContext | nindent 16 }}
+              envFrom:
+                - configMapRef:
+                    name: {{ include "drift.fullname" . }}-config
+                - secretRef:
+                    name: {{ include "drift.secretName" . }}
+              volumeMounts:
+                {{- if .Values.persistence.audit.enabled }}
+                - name: audit
+                  mountPath: {{ .Values.persistence.audit.mountPath }}
+                {{- end }}
+          volumes:
+            {{- if .Values.persistence.audit.enabled }}
+            - name: audit
+              persistentVolumeClaim:
+                claimName: {{ include "drift.fullname" . }}-audit
+            {{- end }}
+{{- end }}
+{{- if .Values.cronjobs.nucleiTemplateUpdate.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "drift.fullname" . }}-nuclei-update
+  labels:
+    {{- include "drift.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cronjobs.nucleiTemplateUpdate.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "drift.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: cronjob-nuclei
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: {{ include "drift.serviceAccountName" . }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: nuclei-update
+              image: "{{ .Values.cronjobs.nucleiTemplateUpdate.image.repository }}:{{ .Values.cronjobs.nucleiTemplateUpdate.image.tag }}"
+              imagePullPolicy: Always
+              command: {{ toJson .Values.cronjobs.nucleiTemplateUpdate.command }}
+              securityContext:
+                {{- toYaml .Values.securityContext | nindent 16 }}
+{{- end }}
