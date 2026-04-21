@@ -1,0 +1,222 @@
+# Default values for drift.
+# Override with: helm install drift ./drift -f my-values.yaml
+
+# -- Number of API replicas
+replicaCount: 2
+
+image:
+  repository: ghcr.io/dalt0n0/drift
+  pullPolicy: IfNotPresent
+  # Overrides the image tag; defaults to chart appVersion
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+# -- Pod annotations (e.g. for Prometheus scraping)
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/api/metrics"
+
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+  annotations: {}
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: drift.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: drift-tls
+      hosts:
+        - drift.example.com
+
+# -- Resource requests and limits
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# -- Horizontal Pod Autoscaler
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# -- Persistent volumes
+persistence:
+  audit:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    mountPath: /var/drift/audit
+
+# -- Liveness / readiness probes
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: 8000
+  initialDelaySeconds: 30
+  periodSeconds: 15
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# -- Node selector, tolerations, affinity
+nodeSelector: {}
+tolerations: []
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [drift]
+          topologyKey: kubernetes.io/hostname
+
+# ─── Drift application configuration ─────────────────────────────────────────
+
+config:
+  environment: production
+  debug: "false"
+  openRegistration: "false"
+  allowedOrigins: "https://drift.example.com"
+  allowRfc1918: "false"
+  enableCloudModules: "false"
+  auditLogPath: /var/drift/audit/audit.jsonl
+  auditRetentionDays: "365"
+  appVersion: "0.1.0"
+
+# -- Secrets (set these at deploy time, never commit real values)
+# These are referenced from a Kubernetes Secret created separately,
+# or via an external secrets manager.
+secrets:
+  # Name of an existing Secret containing all required keys.
+  # If set, 'create' is ignored and this Secret is used directly.
+  existingSecret: ""
+  create: true
+  # Secret keys (only used when create=true)
+  secretKey: "CHANGE_ME_32_byte_hex"
+  jwtSecret: "CHANGE_ME_64_byte_hex"
+  vaultMasterKey: "CHANGE_ME_base64"
+  postgresPassword: "CHANGE_ME"
+  redisPassword: "CHANGE_ME"
+  minioRootPassword: "CHANGE_ME"
+
+# ─── Dependency subchart overrides ───────────────────────────────────────────
+
+postgresql:
+  enabled: true
+  auth:
+    username: drift
+    database: drift
+    # password must match secrets.postgresPassword
+    existingSecret: drift-secrets
+    secretKeys:
+      userPasswordKey: POSTGRES_PASSWORD
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    existingSecret: drift-secrets
+    existingSecretPasswordKey: REDIS_PASSWORD
+  master:
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+minio:
+  enabled: true
+  auth:
+    rootUser: drift
+    existingSecret: drift-secrets
+    rootPasswordKey: MINIO_ROOT_PASSWORD
+  persistence:
+    enabled: true
+    size: 50Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# ─── CronJob schedules ────────────────────────────────────────────────────────
+
+cronjobs:
+  auditIntegrityCheck:
+    enabled: true
+    schedule: "0 2 * * *"      # 02:00 UTC daily
+    command: ["python3", "-m", "app.core.audit", "--verify"]
+
+  nucleiTemplateUpdate:
+    enabled: true
+    schedule: "0 4 * * *"      # 04:00 UTC daily
+    image:
+      repository: ghcr.io/dalt0n0/drift-tools
+      tag: latest
+    command: ["nuclei", "-update-templates"]

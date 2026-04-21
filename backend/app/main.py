@@ -30,6 +30,7 @@ from app.routers import auth as auth_router
 from app.routers import engagements as engagements_router
 from app.routers import findings as findings_router
 from app.routers import modules as modules_router
+from app.routers import sbom as sbom_router
 from app.routers import reports as reports_router
 from app.routers import runs as runs_router
 from app.routers import scope as scope_router
@@ -88,6 +89,7 @@ def create_app() -> FastAPI:
     app.include_router(findings_router.router, prefix="/api")
     app.include_router(reports_router.router, prefix="/api")
     app.include_router(modules_router.router, prefix="/api")
+    app.include_router(sbom_router.router, prefix="/api")
 
     # -- Health --
     @app.get("/api/health", tags=["meta"])
