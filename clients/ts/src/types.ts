@@ -64,16 +64,22 @@ export interface Finding {
 export interface EngagementRun {
   id: string
   engagement_id: string
-  plugin: string
-  params: Record<string, unknown>
   status: RunStatus
-  stdout?: string
-  stderr?: string
-  artifact_path?: string
-  error?: string
-  started_at?: string
-  finished_at?: string
+  pipeline_config: {
+    plugins: string[]
+    safe_mode: boolean
+    params: Record<string, unknown>
+  } | null
+  checkpoint: {
+    completed_plugins: string[]
+    current_plugin: string | null
+  } | null
+  triggered_by: string | null
+  started_at: string | null
+  completed_at: string | null
   created_at: string
+  updated_at: string
+  error_message: string | null
 }
 
 export interface AuditEntry {

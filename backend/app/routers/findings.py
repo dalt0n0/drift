@@ -28,7 +28,7 @@ from app.schemas.finding import (
 )
 
 logger = structlog.get_logger(__name__)
-router = APIRouter(prefix="/findings", tags=["findings"])
+router = APIRouter(tags=["findings"])
 
 
 # ---------------------------------------------------------------------------

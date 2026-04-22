@@ -348,17 +348,6 @@ async def confirm_authorization(
             },
         )
 
-    if not engagement.authorization_letter_path:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "type": "about:blank",
-                "title": "Bad Request",
-                "status": 400,
-                "detail": "No authorization letter uploaded.",
-            },
-        )
-
     engagement.authorization_confirmed = True
     engagement.updated_at = datetime.now(timezone.utc)
 

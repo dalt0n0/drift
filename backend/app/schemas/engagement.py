@@ -119,6 +119,7 @@ class ScopeItemBatchRequest(BaseModel):
 class RunCreateRequest(BaseModel):
     plugin_names: list[str] | None = None
     safe_mode: bool = False
+    params: dict | None = None  # Per-run parameters (target, flags, etc.)
 
 
 class RunResponse(BaseModel):
