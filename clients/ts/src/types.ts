@@ -3,7 +3,7 @@ export type EngagementStatus = 'draft' | 'active' | 'completed' | 'archived' | '
 export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info'
 export type FindingStatus = 'open' | 'triaged' | 'accepted-risk' | 'resolved' | 'false-positive' | 'suggested'
 export type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'error' | 'cancelled'
-export type ScopeType = 'host' | 'ip' | 'cidr' | 'url' | 'wildcard'
+export type ScopeType = 'domain' | 'ip' | 'cidr' | 'url' | 'wildcard'
 
 export interface User {
   id: string

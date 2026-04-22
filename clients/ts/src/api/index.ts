@@ -53,17 +53,17 @@ export const getFinding = (engagementId: string, id: string) =>
 export const createFinding = (engagementId: string, data: Partial<Finding>) =>
   api.post<Finding>(`/engagements/${engagementId}/findings`, data).then(r => r.data)
 
-export const updateFinding = (engagementId: string, id: string, data: Partial<Finding>) =>
-  api.patch<Finding>(`/engagements/${engagementId}/findings/${id}`, data).then(r => r.data)
+export const updateFinding = (_engagementId: string, id: string, data: Partial<Finding>) =>
+  api.patch<Finding>(`/findings/${id}`, data).then(r => r.data)
 
-export const deleteFinding = (engagementId: string, id: string) =>
-  api.delete(`/engagements/${engagementId}/findings/${id}`)
+export const deleteFinding = (_engagementId: string, id: string) =>
+  api.delete(`/findings/${id}`)
 
-export const acceptFinding = (findingId: string, engagementId: string) =>
-  api.patch<Finding>(`/engagements/${engagementId}/findings/${findingId}`, { status: 'open' }).then(r => r.data)
+export const acceptFinding = (findingId: string, _engagementId: string) =>
+  api.patch<Finding>(`/findings/${findingId}`, { status: 'open' }).then(r => r.data)
 
-export const rejectFinding = (findingId: string, engagementId: string) =>
-  api.patch<Finding>(`/engagements/${engagementId}/findings/${findingId}`, { status: 'false_positive' }).then(r => r.data)
+export const rejectFinding = (findingId: string, _engagementId: string) =>
+  api.patch<Finding>(`/findings/${findingId}`, { status: 'false_positive' }).then(r => r.data)
 
 // ── Runs ──────────────────────────────────────────────────────────────
 export const getRuns = (engagementId: string) =>
