@@ -5,7 +5,7 @@ import math
 import uuid
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 
 from app.core import audit as audit_svc
@@ -35,6 +35,7 @@ async def create_run(
     request: Request,
     current_user: CurrentUser,
     db: DB,
+    background_tasks: BackgroundTasks,
 ):
     """Create a new run for an engagement."""
     require_role(current_user.role, Role.tester)
@@ -73,6 +74,10 @@ async def create_run(
         },
         request_id=request.headers.get("x-request-id"),
     )
+
+    # Fire background executor — runs plugins asynchronously after response is returned
+    from app.services.run_executor import execute_run
+    background_tasks.add_task(execute_run, run.id)
 
     return run
 
@@ -222,3 +227,43 @@ async def cancel_run(
     )
 
     return run
+
+
+@router.delete("/runs/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_run(
+    run_id: uuid.UUID,
+    request: Request,
+    current_user: CurrentUser,
+    db: DB,
+):
+    """Permanently delete a run record. Only allowed for completed/failed/cancelled runs."""
+    require_role(current_user.role, Role.tester)
+
+    result = await db.execute(select(EngagementRun).where(EngagementRun.id == run_id))
+    run = result.scalar_one_or_none()
+    if not run:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"type": "about:blank", "title": "Not Found", "status": 404,
+                    "detail": "Run not found."},
+        )
+
+    if run.status in ("pending", "running"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"type": "about:blank", "title": "Conflict", "status": 409,
+                    "detail": "Cannot delete an active run. Cancel it first."},
+        )
+
+    await audit_svc.log(
+        db,
+        action="run.delete",
+        actor_id=current_user.id,
+        actor_ip=audit_svc.get_client_ip(request),
+        resource_type="engagement_run",
+        resource_id=str(run_id),
+        before_state={"status": run.status},
+        request_id=request.headers.get("x-request-id"),
+    )
+    await db.delete(run)
+    await db.commit()
