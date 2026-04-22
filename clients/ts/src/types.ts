@@ -68,6 +68,7 @@ export interface Finding {
   assignee_id?: string
   reporter_id?: string
   remediation?: string
+  notes?: string
   created_at: string
   updated_at: string
 }

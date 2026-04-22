@@ -104,7 +104,7 @@ function FindingsTableBlock({ findings }: { findings: Finding[] }) {
           <SevPill sev={f.severity} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.title}</span>
           <Tag tone="neutral">{f.status}</Tag>
-          <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.target || '—'}</span>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.affected_target || '—'}</span>
         </div>
       ))}
       {sorted.length === 0 && (

@@ -72,8 +72,8 @@ export default function Dashboard({ engagement, onNav }: Props) {
 
   const counts = countSeverities(findings)
   const total = findings.length
-  const open = findings.filter(f => f.status === 'open' || f.status === 'triaged').length
-  const resolved = findings.filter(f => f.status === 'resolved').length
+  const open = findings.filter(f => f.status === 'open' || f.status === 'confirmed').length
+  const resolved = findings.filter(f => f.status === 'remediated').length
   const progress = getPhaseProgress(engagement.status)
 
   const startDate = engagement.start_date ? new Date(engagement.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
@@ -257,8 +257,8 @@ export default function Dashboard({ engagement, onNav }: Props) {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
                 { label: 'Open', val: findings.filter(f => f.status === 'open').length, color: 'var(--high)' },
-                { label: 'Triaged', val: findings.filter(f => f.status === 'triaged').length, color: 'var(--low)' },
-                { label: 'Accepted', val: findings.filter(f => f.status === 'accepted-risk').length, color: 'var(--text-3)' },
+                { label: 'Confirmed', val: findings.filter(f => f.status === 'confirmed').length, color: 'var(--low)' },
+                { label: 'Accepted', val: findings.filter(f => f.status === 'accepted_risk').length, color: 'var(--text-3)' },
                 { label: 'Resolved', val: resolved, color: 'var(--ok)' },
               ].map(r => (
                 <div key={r.label}>
@@ -301,7 +301,7 @@ export default function Dashboard({ engagement, onNav }: Props) {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.title}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--mono)', marginTop: 2 }}>
-                    {f.target || '—'} · {new Date(f.created_at).toLocaleDateString()}
+                    {f.affected_target || '—'} · {new Date(f.created_at).toLocaleDateString()}
                   </div>
                 </div>
                 <StatusPill status={f.status} />

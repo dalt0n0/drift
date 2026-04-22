@@ -338,9 +338,9 @@ export default function Findings({ engagement }: Props) {
   const nonSuggested = findings.filter(f => f.status !== 'suggested')
 
   const filtered = nonSuggested.filter(f => {
-    if (filter === 'open') return f.status === 'open' || f.status === 'triaged'
+    if (filter === 'open') return f.status === 'open' || f.status === 'confirmed'
     if (filter === 'critical') return f.severity === 'critical' || f.severity === 'high'
-    if (filter === 'resolved') return f.status === 'resolved'
+    if (filter === 'resolved') return f.status === 'remediated'
     return true
   }).filter(f => !search || f.title.toLowerCase().includes(search.toLowerCase()) || f.affected_target?.includes(search))
 
@@ -348,9 +348,9 @@ export default function Findings({ engagement }: Props) {
 
   const filterTabs = [
     { id: 'all', label: 'All', count: nonSuggested.length },
-    { id: 'open', label: 'Open', count: nonSuggested.filter(f => f.status === 'open' || f.status === 'triaged').length },
+    { id: 'open', label: 'Open', count: nonSuggested.filter(f => f.status === 'open' || f.status === 'confirmed').length },
     { id: 'critical', label: 'Critical/High', count: nonSuggested.filter(f => f.severity === 'critical' || f.severity === 'high').length },
-    { id: 'resolved', label: 'Resolved', count: nonSuggested.filter(f => f.status === 'resolved').length },
+    { id: 'resolved', label: 'Resolved', count: nonSuggested.filter(f => f.status === 'remediated').length },
   ]
 
   return (
