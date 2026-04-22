@@ -134,9 +134,19 @@ async def execute_run(run_id: uuid.UUID) -> None:
 
                     # If the plugin returned an error dict, surface it
                     if result.get("status") == "error":
-                        err = result.get("error", "unknown error")
+                        # Prefer explicit error message, then last stderr line, then exit code
+                        stderr_tail = (result.get("stderr") or "").strip()
+                        stderr_last = stderr_tail.splitlines()[-1] if stderr_tail else ""
+                        err = (
+                            result.get("error")
+                            or stderr_last
+                            or f"exited with code {result.get('exit_code', '?')}"
+                        )
                         errors.append(f"{plugin_name}: {err}")
                         log_lines.append(f"[{plugin_name}] ERROR: {err}")
+                        # Emit all stderr lines for visibility
+                        for stderr_line in stderr_tail.splitlines():
+                            log_lines.append(f"  stderr: {stderr_line}")
                     elif result.get("status") == "skipped":
                         reason = result.get("reason", "unknown")
                         errors.append(f"{plugin_name}: skipped ({reason})")

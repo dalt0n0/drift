@@ -9,8 +9,20 @@ RUN pip install --upgrade pip && \
 # â”€â”€ Runtime â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 FROM python:3.11-slim AS runtime
 
-# Non-root user
-RUN groupadd -r -g 1000 drift && useradd -r -u 1000 -g drift -s /sbin/nologin drift
+# Install docker CLI so the API can exec into the tools container
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl gnupg lsb-release && \
+    install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+    https://download.docker.com/linux/debian $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+    > /etc/apt/sources.list.d/docker.list && \
+    apt-get update && apt-get install -y --no-install-recommends docker-ce-cli && \
+    rm -rf /var/lib/apt/lists/*
+
+# Non-root user — add to docker group so it can use the mounted socket
+RUN groupadd -r -g 1000 drift && useradd -r -u 1000 -g drift -s /sbin/nologin drift && \
+    usermod -aG docker drift 2>/dev/null || true
 
 WORKDIR /app
 

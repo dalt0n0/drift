@@ -35,6 +35,10 @@ class ToolRunnerError(Exception):
 class ToolRunner:
     """Async subprocess runner with streaming, timeout, and graceful kill.
 
+    When tools_container is set, every command is prefixed with
+    ``docker exec -i <container>`` so that binaries are executed inside the
+    dedicated Kali tools container rather than the API container.
+
     Usage:
         runner = ToolRunner(timeout=300)
         result = await runner.run(["nmap", "-sV", "target.com"])
@@ -44,9 +48,11 @@ class ToolRunner:
         self,
         timeout: int = 300,
         publish: Callable[[dict], Coroutine] | None = None,
+        tools_container: str = "",
     ):
         self.timeout = timeout
         self.publish = publish
+        self.tools_container = tools_container
 
     async def _emit(self, event: dict) -> None:
         """Publish an event if a publish callback is set."""
@@ -78,8 +84,13 @@ class ToolRunner:
         if not cmd or not isinstance(cmd, list):
             raise ToolRunnerError("Command must be a non-empty list of strings")
 
-        logger.info("tool_runner.start", cmd=cmd[0], args=cmd[1:], timeout=self.timeout)
-        await self._emit({"type": "progress", "tool": cmd[0], "status": "starting"})
+        # Route execution through the tools container if configured
+        tool_name = cmd[0]
+        if self.tools_container:
+            cmd = ["docker", "exec", "-i", self.tools_container] + cmd
+
+        logger.info("tool_runner.start", cmd=tool_name, args=cmd[1:], timeout=self.timeout)
+        await self._emit({"type": "progress", "tool": tool_name, "status": "starting"})
 
         start_time = time.monotonic()
         timed_out = False
@@ -95,11 +106,11 @@ class ToolRunner:
                 cwd=cwd,
             )
         except FileNotFoundError:
-            raise ToolRunnerError(f"Binary not found: {cmd[0]}")
+            raise ToolRunnerError(f"Binary not found: {tool_name}")
         except PermissionError:
-            raise ToolRunnerError(f"Permission denied: {cmd[0]}")
+            raise ToolRunnerError(f"Permission denied: {tool_name}")
         except OSError as e:
-            raise ToolRunnerError(f"OS error executing {cmd[0]}: {e}")
+            raise ToolRunnerError(f"OS error executing {tool_name}: {e}")
 
         async def _read_stream(
             stream: asyncio.StreamReader,
@@ -113,7 +124,7 @@ class ToolRunner:
                 line = line_bytes.decode("utf-8", errors="replace").rstrip("\n")
                 lines_buf.append(line)
                 if stream_stdout and stream_name == "stdout":
-                    await self._emit({"type": "output", "tool": cmd[0], "line": line})
+                    await self._emit({"type": "output", "tool": tool_name, "line": line})
 
         try:
             stdout_task = asyncio.create_task(
@@ -137,7 +148,7 @@ class ToolRunner:
             )
             await self._emit({
                 "type": "error",
-                "tool": cmd[0],
+                "tool": tool_name,
                 "message": f"Timed out after {self.timeout}s",
             })
             await self._graceful_kill(proc)
@@ -156,7 +167,7 @@ class ToolRunner:
 
         logger.info(
             "tool_runner.complete",
-            cmd=cmd[0],
+            cmd=tool_name,
             exit_code=exit_code,
             duration=result.duration_seconds,
             timed_out=timed_out,
@@ -166,7 +177,7 @@ class ToolRunner:
 
         await self._emit({
             "type": "progress",
-            "tool": cmd[0],
+            "tool": tool_name,
             "status": "timeout" if timed_out else ("success" if exit_code == 0 else "error"),
             "exit_code": exit_code,
             "duration": result.duration_seconds,

@@ -59,6 +59,13 @@ class Settings(BaseSettings):
     ALLOW_RFC1918: bool = False
     ENABLE_CLOUD_MODULES: bool = False
 
+    # Tools execution
+    # When set, ToolRunner prefixes all commands with `docker exec -i <name>` so
+    # tool binaries are executed inside the dedicated tools container rather than
+    # the API container (which has no tools installed).
+    # Set to the exact container name: e.g. "drift-tools-1" or "deploy_tools_1"
+    TOOLS_CONTAINER: str = ""
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]

@@ -106,10 +106,14 @@ class BasePlugin(ABC):
                     "command": cmd[0],
                 })
 
-            # Execute
+            # Execute — route through tools container if configured
+            from app.config import get_settings
+            tools_container = get_settings().TOOLS_CONTAINER
+
             runner = ToolRunner(
                 timeout=self.manifest.timeout_seconds,
                 publish=publish,
+                tools_container=tools_container,
             )
             result = await runner.run(cmd)
 
@@ -141,6 +145,8 @@ class BasePlugin(ABC):
                 "duration_seconds": result.duration_seconds,
                 "artifact_path": artifact_path,
                 "parsed": parsed,
+                # Include stderr tail so executor can surface a useful error message
+                "stderr": result.stderr[-500:] if result.stderr else "",
             }
 
         except Exception as e:
