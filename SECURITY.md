@@ -4,7 +4,7 @@
 
 **Do not open public issues for security vulnerabilities.**
 
-Email: security@Drift.io (or open a GitHub Security Advisory)
+Email: security@Driftsec.io (or open a GitHub Security Advisory)
 
 Include: description, reproduction steps, impact assessment, suggested fix.
 
