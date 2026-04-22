@@ -69,21 +69,21 @@ async def generate_report(
 
     try:
         if fmt == "json":
-            report_bytes = reporting.generate_json_report(engagement, findings, scope_items)
+            report_bytes, actual_mime = reporting.generate_json_report(engagement, findings, scope_items)
         elif fmt == "csv":
-            report_bytes = reporting.generate_csv_report(engagement, findings)
+            report_bytes, actual_mime = reporting.generate_csv_report(engagement, findings)
         elif fmt == "sarif":
-            report_bytes = reporting.generate_sarif_report(engagement, findings)
+            report_bytes, actual_mime = reporting.generate_sarif_report(engagement, findings)
         elif report_type == "executive":
-            report_bytes = reporting.generate_executive_report(
+            report_bytes, actual_mime = reporting.generate_executive_report(
                 engagement, findings, scope_items, as_pdf=(fmt == "pdf")
             )
         elif report_type == "client":
-            report_bytes = reporting.generate_client_report(
+            report_bytes, actual_mime = reporting.generate_client_report(
                 engagement, findings, scope_items, as_pdf=(fmt == "pdf")
             )
         else:  # technical (default)
-            report_bytes = reporting.generate_technical_report(
+            report_bytes, actual_mime = reporting.generate_technical_report(
                 engagement, findings, scope_items, as_pdf=(fmt == "pdf")
             )
     except Exception as exc:
@@ -117,11 +117,10 @@ async def generate_report(
 
     ext = _FILE_EXTS[fmt]
     filename = f"drift_{report_type}_{engagement_id}.{ext}"
-    mime = _MIME_TYPES[fmt]
 
     return Response(
         content=report_bytes,
-        media_type=mime,
+        media_type=actual_mime,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

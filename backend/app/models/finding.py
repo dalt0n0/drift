@@ -33,6 +33,7 @@ class FindingSeverity(str, enum.Enum):
 
 
 class FindingStatus(str, enum.Enum):
+    suggested = "suggested"
     open = "open"
     confirmed = "confirmed"
     false_positive = "false_positive"

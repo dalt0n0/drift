@@ -42,6 +42,7 @@ async def create_engagement(
         start_date=body.start_date,
         end_date=body.end_date,
         owner_id=current_user.id,
+        organization_id=body.organization_id,
         status=EngagementStatus.draft.value,
     )
     db.add(engagement)
@@ -69,6 +70,7 @@ async def list_engagements(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     status_filter: str | None = Query(None, alias="status"),
+    organization_id: uuid.UUID | None = Query(None),
 ):
     """List engagements visible to the current user."""
     require_role(current_user.role, Role.tester)
@@ -86,6 +88,10 @@ async def list_engagements(
     if status_filter:
         query = query.where(Engagement.status == status_filter)
         count_query = count_query.where(Engagement.status == status_filter)
+
+    if organization_id:
+        query = query.where(Engagement.organization_id == organization_id)
+        count_query = count_query.where(Engagement.organization_id == organization_id)
 
     total_result = await db.execute(count_query)
     total = total_result.scalar_one()
@@ -236,37 +242,31 @@ async def delete_engagement(
     current_user: CurrentUser,
     db: DB,
 ):
-    """Archive (soft-delete) an engagement."""
-    require_role(current_user.role, Role.lead)
+    """Hard-delete an engagement."""
+    require_role(current_user.role, Role.tester)
 
-    result = await db.execute(
-        select(Engagement).where(Engagement.id == engagement_id)
-    )
+    result = await db.execute(select(Engagement).where(Engagement.id == engagement_id))
     engagement = result.scalar_one_or_none()
     if not engagement:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "type": "about:blank",
-                "title": "Not Found",
-                "status": 404,
-                "detail": "Engagement not found.",
-            },
-        )
+        raise HTTPException(status_code=404, detail={"type": "about:blank", "title": "Not Found", "status": 404, "detail": "Engagement not found."})
 
-    engagement.status = EngagementStatus.archived.value
-    engagement.updated_at = datetime.now(timezone.utc)
+    from app.core.permissions import role_from_str
+    user_role = role_from_str(current_user.role)
+    if user_role < Role.lead and engagement.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail={"type": "about:blank", "title": "Forbidden", "status": 403, "detail": "Access denied."})
 
     await audit_svc.log(
         db,
-        action="engagement.archive",
+        action="engagement.delete",
         actor_id=current_user.id,
         actor_ip=audit_svc.get_client_ip(request),
         resource_type="engagement",
         resource_id=str(engagement.id),
-        after_state={"status": "archived"},
+        before_state={"title": engagement.title, "client_name": engagement.client_name},
         request_id=request.headers.get("x-request-id"),
     )
+
+    await db.delete(engagement)
 
 
 @router.post("/{engagement_id}/authorization", response_model=EngagementResponse)

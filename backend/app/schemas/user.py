@@ -37,6 +37,15 @@ class AdminUserUpdateRequest(BaseModel):
     password: str | None = None
 
 
+class UserCreateRequest(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+    full_name: str | None = None
+    role: str | None = "viewer"
+    must_change_password: bool | None = True
+
+
 class UserListResponse(BaseModel):
     items: list[UserResponse]
     total: int

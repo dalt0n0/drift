@@ -17,6 +17,7 @@ class EngagementCreateRequest(BaseModel):
     description: str | None = None
     start_date: datetime | None = None
     end_date: datetime | None = None
+    organization_id: uuid.UUID | None = None
 
     @field_validator("title")
     @classmethod
@@ -53,6 +54,7 @@ class EngagementResponse(BaseModel):
     start_date: datetime | None
     end_date: datetime | None
     owner_id: uuid.UUID
+    organization_id: uuid.UUID | None
     authorization_letter_path: str | None
     authorization_hash: str | None
     authorization_confirmed: bool
@@ -170,3 +172,46 @@ class ModuleResponse(BaseModel):
     inputs: list[str]
     outputs: list[str]
     dependencies: list[str]
+
+
+# ---------------------------------------------------------------------------
+# Organization schemas
+# ---------------------------------------------------------------------------
+
+class OrganizationCreateRequest(BaseModel):
+    name: str
+    description: str | None = None
+    website: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Name cannot be empty")
+        return v.strip()
+
+
+class OrganizationUpdateRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    website: str | None = None
+
+
+class OrganizationResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: str | None
+    website: str | None
+    created_by: uuid.UUID | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class OrganizationListResponse(BaseModel):
+    items: list[OrganizationResponse]
+    total: int
+    page: int
+    page_size: int
+    pages: int

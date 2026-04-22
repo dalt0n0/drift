@@ -36,6 +36,7 @@ class Engagement(Base):
     __table_args__ = (
         Index("ix_engagements_owner_id", "owner_id"),
         Index("ix_engagements_status", "status"),
+        Index("ix_engagements_organization_id", "organization_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -58,6 +59,11 @@ class Engagement(Base):
         ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
     )
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     authorization_letter_path: Mapped[str | None] = mapped_column(
         String(512), nullable=True
     )
@@ -76,6 +82,7 @@ class Engagement(Base):
 
     # Relationships
     owner = relationship("User", foreign_keys=[owner_id], lazy="selectin")
+    organization = relationship("Organization", foreign_keys=[organization_id], back_populates="engagements")
     scope_items = relationship(
         "ScopeItem", back_populates="engagement", cascade="all, delete-orphan"
     )
