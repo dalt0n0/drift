@@ -9,7 +9,7 @@ from pydantic import BaseModel, EmailStr
 class UserResponse(BaseModel):
     id: uuid.UUID
     username: str
-    email: EmailStr
+    email: str
     full_name: str
     role: str
     is_active: bool
