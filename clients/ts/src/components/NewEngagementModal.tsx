@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, FieldRow, Input, Modal, Select, Textarea } from './primitives'
 import { createEngagement, getOrganizations, createOrganization } from '../api'
-import type { Engagement } from '../types'
+import type { Engagement, Organization } from '../types'
 
 interface Props {
   open: boolean
@@ -22,7 +22,7 @@ export default function NewEngagementModal({ open, onClose, onCreated }: Props) 
   const [creatingOrg, setCreatingOrg] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { data: organizations = [] } = useQuery({
+  const { data: organizations = [] as Organization[] } = useQuery({
     queryKey: ['organizations'],
     queryFn: getOrganizations,
     enabled: open,
