@@ -12,11 +12,13 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// On 401, clear token and redirect to login
+// On 401, clear token and redirect to login — but not for auth endpoints themselves
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const url: string = err.config?.url ?? ''
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh')
+    if (err.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('drift.token')
       localStorage.removeItem('drift.user')
       window.location.href = '/login'
