@@ -115,7 +115,11 @@ async def generate_report(
         )
     )
 
-    ext = _FILE_EXTS[fmt]
+    # If WeasyPrint was unavailable the PDF fell back to HTML — fix the extension
+    if fmt == "pdf" and actual_mime.startswith("text/html"):
+        ext = "html"
+    else:
+        ext = _FILE_EXTS[fmt]
     filename = f"drift_{report_type}_{engagement_id}.{ext}"
 
     return Response(

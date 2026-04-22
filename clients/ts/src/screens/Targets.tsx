@@ -66,43 +66,64 @@ function ScanTargetModal({ open, onClose, target, engagementId }: {
   )
 }
 
-const SCOPE_TYPES: ScopeType[] = ['host', 'ip', 'cidr', 'url', 'wildcard']
+const SCOPE_TYPES: ScopeType[] = ['domain', 'ip', 'cidr', 'url', 'wildcard']
 
 const typeColors: Record<ScopeType, string> = {
-  host: '#4ea8ff', ip: '#34d399', cidr: '#c084fc', url: '#ffaa00', wildcard: '#ff8847',
+  domain: '#4ea8ff', ip: '#34d399', cidr: '#c084fc', url: '#ffaa00', wildcard: '#ff8847',
 }
 
 function AddScopeModal({ open, onClose, engagementId }: { open: boolean; onClose: () => void; engagementId: string }) {
   const qc = useQueryClient()
-  const [type, setType] = useState<ScopeType>('host')
+  const [type, setType] = useState<ScopeType>('domain')
   const [value, setValue] = useState('')
   const [notes, setNotes] = useState('')
+  const [error, setError] = useState('')
 
   const add = useMutation({
     mutationFn: () => addScopeItem(engagementId, { type, value, notes }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['scope', engagementId] }); setValue(''); setNotes(''); onClose() },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['scope', engagementId] })
+      setValue(''); setNotes(''); setError(''); onClose()
+    },
+    onError: (err: unknown) => {
+      const resp = (err as { response?: { data?: { detail?: string | { detail?: string } } } })?.response?.data?.detail
+      const msg = typeof resp === 'string' ? resp : (resp as { detail?: string })?.detail || 'Failed to add scope item'
+      setError(msg)
+    },
   })
+
+  const placeholders: Record<ScopeType, string> = {
+    domain: 'api.example.com',
+    ip: '203.0.113.1',
+    cidr: '203.0.113.0/24',
+    url: 'https://example.com/api/*',
+    wildcard: '*.example.com',
+  }
 
   return (
     <Modal open={open} onClose={onClose} title="Add scope item" width={460}>
       <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
         <FieldRow label="Type">
-          <Select value={type} onChange={v => setType(v as ScopeType)}>
+          <Select value={type} onChange={v => { setType(v as ScopeType); setError('') }}>
             {SCOPE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </Select>
         </FieldRow>
         <FieldRow label="Value *">
-          <Input value={value} onChange={setValue} placeholder={
-            type === 'host' ? 'api.example.com' :
-            type === 'ip' ? '192.168.1.1' :
-            type === 'cidr' ? '10.0.0.0/24' :
-            type === 'url' ? 'https://example.com/api/*' :
-            '*.example.com'
-          } />
+          <Input value={value} onChange={v => { setValue(v); setError('') }} placeholder={placeholders[type]} />
         </FieldRow>
         <FieldRow label="Notes">
           <Input value={notes} onChange={setNotes} placeholder="Optional notes…" />
         </FieldRow>
+        {(type === 'ip' || type === 'cidr') && (
+          <div style={{ fontSize: 11.5, color: 'var(--text-3)', padding: '6px 10px', background: 'var(--bg-2)', borderRadius: 5 }}>
+            Note: private/internal IP ranges are blocked by default. Set <code style={{ fontFamily: 'var(--mono)' }}>ALLOW_RFC1918=true</code> in your .env to scan internal networks.
+          </div>
+        )}
+        {error && (
+          <div style={{ padding: '8px 10px', background: 'rgba(255,74,94,0.08)', border: '1px solid rgba(255,74,94,0.3)', borderRadius: 6, color: '#ff8a99', fontSize: 12 }}>
+            {error}
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button variant="primary" onClick={() => add.mutate()} disabled={!value || add.isPending}>

@@ -10,7 +10,11 @@ interface Props { engagement: Engagement | null }
 const SEVERITIES: FindingSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
 const STATUSES: FindingStatus[] = ['open', 'triaged', 'accepted-risk', 'resolved', 'false-positive']
 
-function SuggestedBanner({ findings, engagementId }: { findings: Finding[]; engagementId: string }) {
+function SuggestedBanner({ findings, engagementId, onSelect }: {
+  findings: Finding[]
+  engagementId: string
+  onSelect: (id: string) => void
+}) {
   const qc = useQueryClient()
 
   const accept = useMutation({
@@ -43,17 +47,25 @@ function SuggestedBanner({ findings, engagementId }: { findings: Finding[]; enga
         </span>
       </div>
       {findings.map(f => (
-        <div key={f.id} style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '9px 14px',
-          borderBottom: '1px solid rgba(255,197,61,0.12)',
-        }}>
+        <div
+          key={f.id}
+          onClick={() => onSelect(f.id)}
+          className="hover-row"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '9px 14px',
+            borderBottom: '1px solid rgba(255,197,61,0.12)',
+            cursor: 'pointer',
+          }}
+        >
           <SevPill sev={f.severity} compact />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.title}</div>
-            {f.target && <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--mono)', marginTop: 2 }}>{f.target}</div>}
+            <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--mono)', marginTop: 2 }}>
+              {f.target || (f.description ? f.description.slice(0, 60) + '…' : '—')}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
             <Button
               variant="secondary" size="sm"
               onClick={() => accept.mutate(f.id)}
@@ -362,7 +374,7 @@ export default function Findings({ engagement }: Props) {
         </div>
 
         {/* Suggested findings banner */}
-        <SuggestedBanner findings={suggested} engagementId={engagement.id} />
+        <SuggestedBanner findings={suggested} engagementId={engagement.id} onSelect={setSelectedId} />
 
         {/* List */}
         <div style={{ flex: 1, overflow: 'auto' }}>
