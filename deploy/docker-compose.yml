@@ -68,9 +68,14 @@ services:
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/2
       MINIO_ENDPOINT: minio:9000
+      # Name of the tools container — all plugin commands are executed inside it
+      # via `docker exec -i`. Must match the actual running container name.
+      TOOLS_CONTAINER: ${TOOLS_CONTAINER:-deploy-tools-1}
     volumes:
       - artifacts:/var/drift/uploads
       - auditlogs:/var/drift/audit
+      # Docker socket — lets the API exec into the tools container
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "8000:8000"
     depends_on:
@@ -78,6 +83,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      tools:
+        condition: service_started
     networks:
       - internal
       - external
