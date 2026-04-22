@@ -16,10 +16,10 @@ export default function Login() {
     if (!username || !password) { setError('Username and password required.'); return }
     setLoading(true); setError('')
     try {
-      const { access_token } = await login(username, password)
+      const { access_token, must_change_password } = await login(username, password)
       localStorage.setItem('drift.token', access_token)
       await getMe()
-      navigate('/', { replace: true })
+      navigate(must_change_password ? '/change-password' : '/', { replace: true })
     } catch {
       setError('Invalid credentials.')
     } finally {

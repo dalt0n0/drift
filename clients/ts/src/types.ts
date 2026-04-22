@@ -13,6 +13,7 @@ export interface User {
   role: Role
   is_active: boolean
   created_at: string
+  must_change_password: boolean
 }
 
 export interface Engagement {
@@ -86,5 +87,6 @@ export interface AuditEntry {
 export interface LoginResponse {
   access_token: string
   token_type: string
-  refresh_token: string
+  expires_in: number
+  must_change_password: boolean
 }

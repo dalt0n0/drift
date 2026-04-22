@@ -260,24 +260,31 @@ $DC run --rm api alembic upgrade head
 ADMIN_PASS=$(openssl rand -base64 16 | tr -d '/+=' | head -c 16)
 
 info "Creating initial admin user..."
-$DC run --rm api python3 - <<PYEOF 2>/dev/null || warn "Admin user may already exist — skipping."
-import asyncio
+$DC run --rm api python3 - <<PYEOF || warn "Admin user may already exist — skipping."
+import asyncio, sys
 from app.database import AsyncSessionLocal
 from app.models.user import User
 from app.core.security import hash_password
+from sqlalchemy import select
 
 async def main():
     async with AsyncSessionLocal() as db:
+        existing = await db.execute(select(User).where(User.username == "admin"))
+        if existing.scalar_one_or_none():
+            print("Admin user already exists, skipping creation.", file=sys.stderr)
+            return
         u = User(
             username="admin",
             email="admin@drift.local",
-            full_name="Admin",
+            full_name="Admin User",
             role="admin",
             hashed_password=hash_password("${ADMIN_PASS}"),
             is_active=True,
+            must_change_password=True,
         )
         db.add(u)
         await db.commit()
+        print("Admin user created.", file=sys.stderr)
 
 asyncio.run(main())
 PYEOF
