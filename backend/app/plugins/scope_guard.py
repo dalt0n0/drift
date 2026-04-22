@@ -167,7 +167,7 @@ def scope_guard(func):
     """
 
     @functools.wraps(func)
-    async def wrapper(self, inputs: dict, run_id: Any, publish: Any, **kwargs):
+    async def wrapper(self, inputs: dict, run_id: Any, publish: Any = None, **kwargs):
         engagement_id = inputs.get("engagement_id")
         db = kwargs.get("db")
         targets = inputs.get("targets", [])
