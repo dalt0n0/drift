@@ -63,7 +63,7 @@ export const acceptFinding = (findingId: string, engagementId: string) =>
   api.patch<Finding>(`/engagements/${engagementId}/findings/${findingId}`, { status: 'open' }).then(r => r.data)
 
 export const rejectFinding = (findingId: string, engagementId: string) =>
-  api.patch<Finding>(`/engagements/${engagementId}/findings/${findingId}`, { status: 'false-positive' }).then(r => r.data)
+  api.patch<Finding>(`/engagements/${engagementId}/findings/${findingId}`, { status: 'false_positive' }).then(r => r.data)
 
 // ── Runs ──────────────────────────────────────────────────────────────
 export const getRuns = (engagementId: string) =>

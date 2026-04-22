@@ -36,7 +36,7 @@ class FindingUpdateRequest(BaseModel):
     severity: str | None = Field(default=None, pattern="^(critical|high|medium|low|info)$")
     status: str | None = Field(
         default=None,
-        pattern="^(open|confirmed|false_positive|remediated|accepted_risk)$",
+        pattern="^(suggested|open|confirmed|false_positive|remediated|accepted_risk)$",
     )
     cvss_score: float | None = Field(default=None, ge=0, le=10)
     cvss_vector: str | None = None
