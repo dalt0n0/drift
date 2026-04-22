@@ -173,10 +173,10 @@ function RunDetail({ run, engagementId, onMutate }: { run: EngagementRun; engage
         </div>
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {run.error_message && (
           <div style={{
-            marginBottom: 12, padding: '10px 12px', borderRadius: 6,
+            padding: '10px 12px', borderRadius: 6,
             background: 'rgba(255,74,94,0.10)', border: '1px solid rgba(255,74,94,0.25)',
             color: 'var(--crit)', fontSize: 12.5,
           }}>
@@ -185,31 +185,77 @@ function RunDetail({ run, engagementId, onMutate }: { run: EngagementRun; engage
           </div>
         )}
 
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>Pipeline</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {plugins.map(p => (
-            <div key={p} style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '6px 10px', borderRadius: 6,
-              background: 'var(--bg-2)',
-            }}>
-              <span style={{
-                width: 7, height: 7, borderRadius: 999, flexShrink: 0,
-                background: completed.includes(p)
-                  ? 'var(--ok)'
-                  : run.checkpoint?.current_plugin === p
-                    ? '#ffaa00'
-                    : 'var(--text-4)',
-              }} />
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{p}</span>
-              <span style={{ fontSize: 11, color: 'var(--text-4)', marginLeft: 'auto' }}>
-                {completed.includes(p) ? 'done' : run.checkpoint?.current_plugin === p ? 'running' : 'queued'}
-              </span>
-            </div>
-          ))}
-          {plugins.length === 0 && (
-            <div style={{ color: 'var(--text-4)', fontSize: 12 }}>No pipeline configured.</div>
-          )}
+        {/* Pipeline steps */}
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Pipeline</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {plugins.map(p => {
+              const pluginResult = run.checkpoint?.results?.[p]
+              const isDone = completed.includes(p)
+              const isRunning = run.checkpoint?.current_plugin === p
+              const hasError = pluginResult?.status === 'error' || pluginResult?.status === 'skipped'
+              return (
+                <div key={p} style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '7px 10px', borderRadius: 6,
+                  background: 'var(--bg-2)',
+                  border: `1px solid ${hasError ? 'rgba(255,74,94,0.2)' : 'transparent'}`,
+                }}>
+                  <span style={{
+                    width: 7, height: 7, borderRadius: 999, flexShrink: 0,
+                    background: hasError ? 'var(--crit)' : isDone ? 'var(--ok)' : isRunning ? '#ffaa00' : 'var(--text-4)',
+                    boxShadow: isRunning ? '0 0 0 3px rgba(255,170,0,0.2)' : 'none',
+                  }} />
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 12, flex: 1 }}>{p}</span>
+                  {pluginResult?.duration_seconds != null && (
+                    <span style={{ fontSize: 10.5, color: 'var(--text-4)', fontFamily: 'var(--mono)' }}>
+                      {pluginResult.duration_seconds}s
+                    </span>
+                  )}
+                  <span style={{ fontSize: 11, color: hasError ? 'var(--crit)' : isDone ? 'var(--ok)' : 'var(--text-4)' }}>
+                    {hasError ? pluginResult?.status : isDone ? 'done' : isRunning ? 'running' : 'queued'}
+                  </span>
+                </div>
+              )
+            })}
+            {plugins.length === 0 && (
+              <div style={{ color: 'var(--text-4)', fontSize: 12 }}>No pipeline configured.</div>
+            )}
+          </div>
+        </div>
+
+        {/* Live log output */}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+            Output
+            {run.status === 'running' && (
+              <span style={{ width: 6, height: 6, borderRadius: 999, background: '#ffaa00', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            )}
+          </div>
+          <div style={{
+            background: 'var(--bg-1)', borderRadius: 6, border: '1px solid var(--line)',
+            padding: '10px 12px', fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--text-2)',
+            minHeight: 120, maxHeight: 420, overflow: 'auto',
+            lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+          }}>
+            {(run.checkpoint?.logs ?? []).length > 0
+              ? run.checkpoint!.logs!.map((line, i) => {
+                  const isError = line.includes('ERROR:') || line.includes('EXCEPTION:')
+                  const isSkip = line.includes('SKIPPED:')
+                  const isDone = line.includes('] Done')
+                  return (
+                    <div key={i} style={{
+                      color: isError ? 'var(--crit)' : isSkip ? '#ffaa00' : isDone ? 'var(--ok)' : undefined,
+                    }}>
+                      {line}
+                    </div>
+                  )
+                })
+              : <span style={{ color: 'var(--text-4)' }}>
+                  {run.status === 'pending' ? 'Waiting to start…' : run.status === 'running' ? 'Running…' : 'No output captured.'}
+                </span>
+            }
+          </div>
         </div>
       </div>
     </div>

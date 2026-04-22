@@ -73,6 +73,8 @@ export interface EngagementRun {
   checkpoint: {
     completed_plugins: string[]
     current_plugin: string | null
+    logs?: string[]
+    results?: Record<string, { status: string; error?: string; exit_code?: number; duration_seconds?: number }>
   } | null
   triggered_by: string | null
   started_at: string | null
