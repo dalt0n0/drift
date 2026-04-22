@@ -1,18 +1,117 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Ic } from '../components/Icon'
-import { Button, Card, EmptyState, FieldRow, Input, SectionHeader, Spinner, Tag } from '../components/primitives'
-import { getMe, getSbomSummary, getUsers } from '../api'
+import { Button, Card, EmptyState, FieldRow, Input, Modal, Select, SectionHeader, Spinner, Tag } from '../components/primitives'
+import { getMe, getSbomSummary, getUsers, createUser } from '../api'
+import type { Role } from '../types'
+
+const ELEVATED_ROLES: Role[] = ['lead', 'operator', 'admin']
+
+function NewUserModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const qc = useQueryClient()
+  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [role, setRole] = useState('tester')
+  const [mustChange, setMustChange] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const reset = () => {
+    setUsername(''); setEmail(''); setPassword(''); setFullName('')
+    setRole('tester'); setMustChange(true); setError(null)
+  }
+
+  const mutation = useMutation({
+    mutationFn: () => createUser({
+      username: username.trim(),
+      email: email.trim(),
+      password,
+      full_name: fullName.trim() || undefined,
+      role,
+      must_change_password: mustChange,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      reset()
+      onClose()
+    },
+    onError: (err: any) => {
+      const detail = err?.response?.data?.detail
+      setError(typeof detail === 'string' ? detail : JSON.stringify(detail) || 'Failed to create user')
+    },
+  })
+
+  const submit = () => {
+    setError(null)
+    if (!username.trim()) { setError('Username is required'); return }
+    if (!email.trim()) { setError('Email is required'); return }
+    if (!password) { setError('Password is required'); return }
+    mutation.mutate()
+  }
+
+  return (
+    <Modal open={open} onClose={() => { reset(); onClose() }} title="New user" width={480}>
+      <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <FieldRow label="Username *">
+          <Input value={username} onChange={setUsername} placeholder="jdoe" autoFocus />
+        </FieldRow>
+        <FieldRow label="Email *">
+          <Input value={email} onChange={setEmail} placeholder="jdoe@example.com" type="email" />
+        </FieldRow>
+        <FieldRow label="Password *">
+          <Input value={password} onChange={setPassword} placeholder="Temporary password" type="password" />
+        </FieldRow>
+        <FieldRow label="Full name">
+          <Input value={fullName} onChange={setFullName} placeholder="Jane Doe" />
+        </FieldRow>
+        <FieldRow label="Role">
+          <Select value={role} onChange={setRole}>
+            {['viewer', 'tester', 'lead', 'operator', 'admin'].map(r => (
+              <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+            ))}
+          </Select>
+        </FieldRow>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <input
+            type="checkbox"
+            id="must-change"
+            checked={mustChange}
+            onChange={e => setMustChange(e.target.checked)}
+            style={{ width: 16, height: 16, cursor: 'pointer' }}
+          />
+          <label htmlFor="must-change" style={{ fontSize: 13, color: 'var(--text-2)', cursor: 'pointer' }}>
+            Require password change on first login
+          </label>
+        </div>
+        {error && (
+          <div style={{ padding: '8px 10px', background: 'rgba(255,74,94,0.08)', border: '1px solid rgba(255,74,94,0.3)', borderRadius: 6, color: '#ff8a99', fontSize: 12 }}>
+            {error}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+          <Button variant="ghost" onClick={() => { reset(); onClose() }} disabled={mutation.isPending}>Cancel</Button>
+          <Button variant="primary" onClick={submit} disabled={mutation.isPending}>
+            {mutation.isPending ? 'Creating…' : 'Create user'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
 
 export default function Settings() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<'general' | 'sbom' | 'team'>('general')
+  const [newUserOpen, setNewUserOpen] = useState(false)
   const { data: user } = useQuery({ queryKey: ['me'], queryFn: getMe })
   const { data: sbom } = useQuery({ queryKey: ['sbom'], queryFn: getSbomSummary })
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['users'], queryFn: getUsers, enabled: tab === 'team',
   })
+
+  const hasTeamAccess = user && ELEVATED_ROLES.includes(user.role as Role)
 
   const tabs = [
     { id: 'general' as const, label: 'General', icon: 'settings' },
@@ -124,8 +223,24 @@ export default function Settings() {
 
         {tab === 'team' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <SectionHeader title="Team members" subtitle="All users with access to this workspace" />
-            {usersLoading ? (
+            <SectionHeader
+              title="Team members"
+              subtitle="All users with access to this workspace"
+              right={
+                hasTeamAccess ? (
+                  <Button variant="primary" size="sm" icon={<Ic name="plus" size={13} />} onClick={() => setNewUserOpen(true)}>
+                    New user
+                  </Button>
+                ) : undefined
+              }
+            />
+            {!hasTeamAccess ? (
+              <Card>
+                <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
+                  You need lead or higher role to manage users.
+                </div>
+              </Card>
+            ) : usersLoading ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><Spinner /></div>
             ) : users.length === 0 ? (
               <EmptyState icon="users" title="No users" body="Add users via the API or admin CLI." />
@@ -149,6 +264,7 @@ export default function Settings() {
           </div>
         )}
       </div>
+      <NewUserModal open={newUserOpen} onClose={() => setNewUserOpen(false)} />
     </div>
   )
 }

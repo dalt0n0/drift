@@ -1,7 +1,7 @@
 import { api } from './client'
 import type {
   LoginResponse, User, Engagement, ScopeItem,
-  Finding, EngagementRun, AuditEntry,
+  Finding, EngagementRun, AuditEntry, Organization,
 } from '../types'
 
 // ── Auth ──────────────────────────────────────────────────────────────
@@ -26,6 +26,12 @@ export const createEngagement = (data: Partial<Engagement>) =>
 
 export const updateEngagement = (id: string, data: Partial<Engagement>) =>
   api.patch<Engagement>(`/engagements/${id}`, data).then(r => r.data)
+
+export const updateEngagementStatus = (engagementId: string, status: string) =>
+  api.patch<Engagement>(`/engagements/${engagementId}`, { status }).then(r => r.data)
+
+export const deleteEngagement = (engagementId: string) =>
+  api.delete(`/engagements/${engagementId}`)
 
 // ── Scope ─────────────────────────────────────────────────────────────
 export const getScope = (engagementId: string) =>
@@ -52,6 +58,12 @@ export const updateFinding = (engagementId: string, id: string, data: Partial<Fi
 
 export const deleteFinding = (engagementId: string, id: string) =>
   api.delete(`/engagements/${engagementId}/findings/${id}`)
+
+export const acceptFinding = (findingId: string, engagementId: string) =>
+  api.patch<Finding>(`/engagements/${engagementId}/findings/${findingId}`, { status: 'open' }).then(r => r.data)
+
+export const rejectFinding = (findingId: string, engagementId: string) =>
+  api.patch<Finding>(`/engagements/${engagementId}/findings/${findingId}`, { status: 'false-positive' }).then(r => r.data)
 
 // ── Runs ──────────────────────────────────────────────────────────────
 export const getRuns = (engagementId: string) =>
@@ -114,3 +126,25 @@ export const getSbomSummary = () =>
 // ── Users ─────────────────────────────────────────────────────────────
 export const getUsers = () =>
   api.get<User[]>('/users').then(r => r.data)
+
+export const createUser = (body: {
+  username: string
+  email: string
+  password: string
+  full_name?: string
+  role?: string
+  must_change_password?: boolean
+}) => api.post<User>('/users/', body).then(r => r.data)
+
+// ── Organizations ─────────────────────────────────────────────────────
+export const getOrganizations = () =>
+  api.get<{ items: Organization[] } | Organization[]>('/organizations?page_size=200').then(r => {
+    const d = r.data as any
+    return Array.isArray(d) ? d : (d.items ?? d)
+  })
+
+export const createOrganization = (body: { name: string; description?: string; website?: string }) =>
+  api.post<Organization>('/organizations', body).then(r => r.data)
+
+export const deleteOrganization = (id: string) =>
+  api.delete(`/organizations/${id}`)

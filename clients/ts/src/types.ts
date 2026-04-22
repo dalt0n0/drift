@@ -1,7 +1,7 @@
-export type Role = 'admin' | 'operator' | 'viewer'
+export type Role = 'admin' | 'operator' | 'lead' | 'tester' | 'viewer'
 export type EngagementStatus = 'draft' | 'active' | 'completed' | 'archived' | 'paused'
 export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info'
-export type FindingStatus = 'open' | 'triaged' | 'accepted-risk' | 'resolved' | 'false-positive'
+export type FindingStatus = 'open' | 'triaged' | 'accepted-risk' | 'resolved' | 'false-positive' | 'suggested'
 export type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'error' | 'cancelled'
 export type ScopeType = 'host' | 'ip' | 'cidr' | 'url' | 'wildcard'
 
@@ -25,9 +25,20 @@ export interface Engagement {
   start_date?: string
   end_date?: string
   owner_id: string
+  organization_id?: string
   authorization_letter_path?: string
   authorization_hash?: string
   authorization_confirmed?: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Organization {
+  id: string
+  name: string
+  description: string | null
+  website: string | null
+  created_by: string | null
   created_at: string
   updated_at: string
 }
