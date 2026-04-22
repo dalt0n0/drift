@@ -18,14 +18,16 @@ export interface User {
 
 export interface Engagement {
   id: string
-  name: string
-  description: string
+  title: string
+  client_name: string
+  description?: string
   status: EngagementStatus
   start_date?: string
   end_date?: string
-  client_name?: string
-  engagement_type?: string
-  created_by: string
+  owner_id: string
+  authorization_letter_path?: string
+  authorization_hash?: string
+  authorization_confirmed?: boolean
   created_at: string
   updated_at: string
 }

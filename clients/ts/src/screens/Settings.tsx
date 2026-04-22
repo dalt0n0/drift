@@ -1,18 +1,21 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { Ic } from '../components/Icon'
-import { Button, Card, FieldRow, Input, SectionHeader, Select, Spinner, Tag } from '../components/primitives'
-import { getMe, getSbomSummary } from '../api'
+import { Button, Card, EmptyState, FieldRow, Input, SectionHeader, Spinner, Tag } from '../components/primitives'
+import { getMe, getSbomSummary, getUsers } from '../api'
 
 export default function Settings() {
-  const [tab, setTab] = useState<'general' | 'notifications' | 'integrations' | 'sbom' | 'team'>('general')
+  const navigate = useNavigate()
+  const [tab, setTab] = useState<'general' | 'sbom' | 'team'>('general')
   const { data: user } = useQuery({ queryKey: ['me'], queryFn: getMe })
   const { data: sbom } = useQuery({ queryKey: ['sbom'], queryFn: getSbomSummary })
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: ['users'], queryFn: getUsers, enabled: tab === 'team',
+  })
 
   const tabs = [
     { id: 'general' as const, label: 'General', icon: 'settings' },
-    { id: 'notifications' as const, label: 'Notifications', icon: 'bell' },
-    { id: 'integrations' as const, label: 'Integrations', icon: 'zap' },
     { id: 'sbom' as const, label: 'SBOM', icon: 'shield' },
     { id: 'team' as const, label: 'Team', icon: 'users' },
   ]
@@ -45,89 +48,30 @@ export default function Settings() {
                   <Input value={user?.username || ''} onChange={() => {}} disabled />
                 </FieldRow>
                 <FieldRow label="Full name">
-                  <Input value={user?.full_name || ''} onChange={() => {}} />
+                  <Input value={user?.full_name || ''} onChange={() => {}} disabled />
                 </FieldRow>
                 <FieldRow label="Email">
-                  <Input value={user?.email || ''} onChange={() => {}} />
+                  <Input value={user?.email || ''} onChange={() => {}} disabled />
                 </FieldRow>
                 <FieldRow label="Role">
                   <div style={{ padding: '6px 10px', background: 'var(--bg-2)', borderRadius: 6, fontSize: 13, fontFamily: 'var(--mono)' }}>
                     {user?.role || '—'}
                   </div>
                 </FieldRow>
-                <Button variant="primary" style={{ alignSelf: 'flex-start' }}>Save changes</Button>
               </div>
             </Card>
 
             <Card>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Change password</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <FieldRow label="Current password"><Input value="" onChange={() => {}} type="password" /></FieldRow>
-                <FieldRow label="New password"><Input value="" onChange={() => {}} type="password" /></FieldRow>
-                <FieldRow label="Confirm new password"><Input value="" onChange={() => {}} type="password" /></FieldRow>
-                <Button variant="secondary" style={{ alignSelf: 'flex-start' }}>Update password</Button>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>Password</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>Change the password used to sign in.</div>
+                </div>
+                <Button variant="secondary" icon={<Ic name="key" size={13} />} onClick={() => navigate('/change-password')}>
+                  Change password
+                </Button>
               </div>
             </Card>
-          </div>
-        )}
-
-        {tab === 'notifications' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <SectionHeader title="Notification rules" subtitle="Configure when and how you get notified" />
-            {[
-              { label: 'New critical finding', desc: 'Notify immediately when a critical finding is created', enabled: true },
-              { label: 'Scan run completed', desc: 'Notify when a scan run finishes', enabled: true },
-              { label: 'Finding status changed', desc: 'Notify on status transitions', enabled: false },
-              { label: 'Report ready', desc: 'Notify when a report draft is ready', enabled: true },
-              { label: 'New comment or mention', desc: 'Notify when you are mentioned', enabled: true },
-            ].map(n => (
-              <Card key={n.label}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{n.label}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>{n.desc}</div>
-                  </div>
-                  <div style={{
-                    width: 38, height: 22, borderRadius: 999,
-                    background: n.enabled ? 'var(--accent)' : 'var(--bg-3)',
-                    cursor: 'pointer', position: 'relative',
-                    border: '1px solid ' + (n.enabled ? 'var(--accent-line)' : 'var(--line)'),
-                  }}>
-                    <div style={{
-                      width: 16, height: 16, borderRadius: 999, background: '#fff',
-                      position: 'absolute', top: 2, left: n.enabled ? 18 : 2,
-                      transition: 'left 0.15s',
-                    }} />
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {tab === 'integrations' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <SectionHeader title="Integrations" subtitle="Connect Drift to your existing tools" />
-            {[
-              { name: 'Slack', icon: 'slack', desc: 'Send finding notifications to Slack channels', connected: false },
-              { name: 'Email / SMTP', icon: 'mail', desc: 'Send email notifications for critical events', connected: false },
-              { name: 'Webhook', icon: 'zap', desc: 'POST events to a custom endpoint', connected: false },
-            ].map(i => (
-              <Card key={i.name}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ic name={i.icon} size={18} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{i.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{i.desc}</div>
-                  </div>
-                  <Button variant={i.connected ? 'danger' : 'secondary'} size="sm">
-                    {i.connected ? 'Disconnect' : 'Connect'}
-                  </Button>
-                </div>
-              </Card>
-            ))}
           </div>
         )}
 
@@ -180,26 +124,28 @@ export default function Settings() {
 
         {tab === 'team' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <SectionHeader title="Team members" subtitle="Manage access to your workspace" right={
-              <Button variant="secondary" size="sm" icon={<Ic name="plus" size={13} />}>Invite</Button>
-            } />
-            <Card padding={0}>
-              {[
-                { name: 'Admin User', username: 'admin', role: 'admin', active: true },
-              ].map(u => (
-                <div key={u.username} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--line)' }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 999, background: 'var(--accent-bg)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, border: '1px solid var(--accent-line)' }}>
-                    {u.username.slice(0, 2).toUpperCase()}
+            <SectionHeader title="Team members" subtitle="All users with access to this workspace" />
+            {usersLoading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><Spinner /></div>
+            ) : users.length === 0 ? (
+              <EmptyState icon="users" title="No users" body="Add users via the API or admin CLI." />
+            ) : (
+              <Card padding={0}>
+                {users.map(u => (
+                  <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--line)' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 999, background: 'var(--accent-bg)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, border: '1px solid var(--accent-line)' }}>
+                      {u.username.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{u.full_name || u.username}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>{u.username} · {u.email}</div>
+                    </div>
+                    <Tag tone={u.role === 'admin' ? 'accent' : 'neutral'}>{u.role}</Tag>
+                    <div style={{ width: 7, height: 7, borderRadius: 999, background: u.is_active ? 'var(--ok)' : 'var(--text-4)' }} title={u.is_active ? 'Active' : 'Inactive'} />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{u.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>{u.username}</div>
-                  </div>
-                  <Tag tone={u.role === 'admin' ? 'accent' : 'neutral'}>{u.role}</Tag>
-                  <div style={{ width: 7, height: 7, borderRadius: 999, background: u.active ? 'var(--ok)' : 'var(--text-4)' }} />
-                </div>
-              ))}
-            </Card>
+                ))}
+              </Card>
+            )}
           </div>
         )}
       </div>
