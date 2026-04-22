@@ -16,7 +16,7 @@ export const logout = () =>
 
 // ── Engagements ───────────────────────────────────────────────────────
 export const getEngagements = () =>
-  api.get<Engagement[]>('/engagements').then(r => r.data)
+  api.get<{ items: Engagement[] }>('/engagements').then(r => r.data.items)
 
 export const getEngagement = (id: string) =>
   api.get<Engagement>(`/engagements/${id}`).then(r => r.data)
@@ -39,7 +39,7 @@ export const deleteScopeItem = (engagementId: string, itemId: string) =>
 
 // ── Findings ──────────────────────────────────────────────────────────
 export const getFindings = (engagementId: string) =>
-  api.get<Finding[]>(`/engagements/${engagementId}/findings`).then(r => r.data)
+  api.get<{ items: Finding[] }>(`/engagements/${engagementId}/findings`).then(r => r.data.items)
 
 export const getFinding = (engagementId: string, id: string) =>
   api.get<Finding>(`/engagements/${engagementId}/findings/${id}`).then(r => r.data)
@@ -55,7 +55,7 @@ export const deleteFinding = (engagementId: string, id: string) =>
 
 // ── Runs ──────────────────────────────────────────────────────────────
 export const getRuns = (engagementId: string) =>
-  api.get<EngagementRun[]>(`/engagements/${engagementId}/runs`).then(r => r.data)
+  api.get<{ items: EngagementRun[] }>(`/engagements/${engagementId}/runs`).then(r => r.data.items)
 
 export const getRun = (engagementId: string, runId: string) =>
   api.get<EngagementRun>(`/engagements/${engagementId}/runs/${runId}`).then(r => r.data)
@@ -68,7 +68,7 @@ export const changePassword = (current_password: string, new_password: string) =
 
 // ── Audit ─────────────────────────────────────────────────────────────
 export const getAudit = (limit = 50) =>
-  api.get<AuditEntry[]>(`/audit?limit=${limit}`).then(r => r.data)
+  api.get<{ items: AuditEntry[] }>(`/audit?limit=${limit}`).then(r => r.data.items)
 
 // ── SBOM ──────────────────────────────────────────────────────────────
 export const getSbomSummary = () =>
