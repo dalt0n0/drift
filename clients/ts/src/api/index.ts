@@ -137,11 +137,10 @@ export const createUser = (body: {
 }) => api.post<User>('/users/', body).then(r => r.data)
 
 // ── Organizations ─────────────────────────────────────────────────────
-export const getOrganizations = () =>
-  api.get<{ items: Organization[] } | Organization[]>('/organizations?page_size=200').then(r => {
-    const d = r.data as any
-    return Array.isArray(d) ? d : (d.items ?? d)
-  })
+export const getOrganizations = (): Promise<Organization[]> =>
+  api.get<{ items: Organization[] }>('/organizations?page_size=200').then(r =>
+    r.data.items ?? (r.data as unknown as Organization[])
+  )
 
 export const createOrganization = (body: { name: string; description?: string; website?: string }) =>
   api.post<Organization>('/organizations', body).then(r => r.data)

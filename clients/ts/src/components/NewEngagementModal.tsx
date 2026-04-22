@@ -22,11 +22,12 @@ export default function NewEngagementModal({ open, onClose, onCreated }: Props) 
   const [creatingOrg, setCreatingOrg] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { data: organizations = [] as Organization[] } = useQuery({
+  const { data: orgsData } = useQuery<Organization[]>({
     queryKey: ['organizations'],
     queryFn: getOrganizations,
     enabled: open,
   })
+  const organizations: Organization[] = orgsData ?? []
 
   const createOrgMutation = useMutation({
     mutationFn: () => createOrganization({ name: newOrgName.trim() }),
