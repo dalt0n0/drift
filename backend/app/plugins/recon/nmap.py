@@ -28,6 +28,7 @@ class NmapPlugin(BasePlugin):
         targets = inputs.get("targets", [])
         cmd = [
             "nmap",
+            "--unprivileged", # Override Kali wrapper's --privileged; use OS TCP stack only
             "-sT",          # TCP connect scan — no raw socket needed inside container
             "-sV",          # Service version detection
             "-oX", "-",     # XML to stdout

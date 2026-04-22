@@ -1,7 +1,7 @@
 export type Role = 'admin' | 'operator' | 'lead' | 'tester' | 'viewer'
 export type EngagementStatus = 'draft' | 'active' | 'completed' | 'archived' | 'paused'
 export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info'
-export type FindingStatus = 'open' | 'triaged' | 'accepted-risk' | 'resolved' | 'false-positive' | 'suggested'
+export type FindingStatus = 'suggested' | 'open' | 'confirmed' | 'false_positive' | 'remediated' | 'accepted_risk'
 export type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'error' | 'cancelled'
 export type ScopeType = 'domain' | 'ip' | 'cidr' | 'url' | 'wildcard'
 
@@ -61,7 +61,7 @@ export interface Finding {
   status: FindingStatus
   cvss_score?: number
   cve_ids?: string[]
-  target?: string
+  affected_target?: string
   category?: string
   cwe?: string
   tags?: string[]

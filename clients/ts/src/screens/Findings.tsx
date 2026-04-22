@@ -8,7 +8,7 @@ import type { Engagement, Finding, FindingSeverity, FindingStatus } from '../typ
 interface Props { engagement: Engagement | null }
 
 const SEVERITIES: FindingSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
-const STATUSES: FindingStatus[] = ['open', 'triaged', 'accepted-risk', 'resolved', 'false-positive']
+const STATUSES: FindingStatus[] = ['open', 'confirmed', 'false_positive', 'remediated', 'accepted_risk']
 
 function SuggestedBanner({ findings, engagementId, onSelect }: {
   findings: Finding[]
@@ -62,7 +62,7 @@ function SuggestedBanner({ findings, engagementId, onSelect }: {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.title}</div>
             <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--mono)', marginTop: 2 }}>
-              {f.target || (f.description ? f.description.slice(0, 60) + '…' : '—')}
+              {f.affected_target || (f.description ? f.description.slice(0, 60) + '…' : '—')}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
@@ -119,7 +119,7 @@ function FindingDetail({ finding, engagementId, onClose }: { finding: Finding; e
           </div>
           <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.3 }}>{finding.title}</div>
           <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6, display: 'flex', gap: 12 }}>
-            {finding.target && <span style={{ fontFamily: 'var(--mono)' }}>{finding.target}</span>}
+            {finding.affected_target && <span style={{ fontFamily: 'var(--mono)' }}>{finding.affected_target}</span>}
             {finding.category && <span>{finding.category}</span>}
             {finding.cwe && <span style={{ fontFamily: 'var(--mono)' }}>{finding.cwe}</span>}
           </div>
@@ -244,14 +244,14 @@ function EditFindingForm({ finding, engagementId }: { finding: Finding; engageme
   const [description, setDescription] = useState(finding.description || '')
   const [severity, setSeverity] = useState<FindingSeverity>(finding.severity)
   const [status, setStatus] = useState<FindingStatus>(finding.status)
-  const [target, setTarget] = useState(finding.target || '')
+  const [target, setTarget] = useState(finding.affected_target || '')
   const [category, setCategory] = useState(finding.category || '')
   const [cwe, setCwe] = useState(finding.cwe || '')
   const [remediation, setRemediation] = useState(finding.remediation || '')
   const [saved, setSaved] = useState(false)
 
   const update = useMutation({
-    mutationFn: () => updateFinding(engagementId, finding.id, { title, description, severity, status, target, category, cwe, remediation }),
+    mutationFn: () => updateFinding(engagementId, finding.id, { title, description, severity, status, affected_target: target, notes: remediation }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['findings', engagementId] }); setSaved(true); setTimeout(() => setSaved(false), 2000) },
   })
 
@@ -291,7 +291,7 @@ function NewFindingModal({ open, onClose, engagementId }: { open: boolean; onClo
   const [category, setCategory] = useState('')
 
   const create = useMutation({
-    mutationFn: () => createFinding(engagementId, { title, description, severity, status: 'open', target, category }),
+    mutationFn: () => createFinding(engagementId, { title, description, severity, status: 'open', affected_target: target }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['findings', engagementId] }); onClose() },
   })
 
@@ -342,7 +342,7 @@ export default function Findings({ engagement }: Props) {
     if (filter === 'critical') return f.severity === 'critical' || f.severity === 'high'
     if (filter === 'resolved') return f.status === 'resolved'
     return true
-  }).filter(f => !search || f.title.toLowerCase().includes(search.toLowerCase()) || f.target?.includes(search))
+  }).filter(f => !search || f.title.toLowerCase().includes(search.toLowerCase()) || f.affected_target?.includes(search))
 
   const selected = findings.find(f => f.id === selectedId) || null
 
@@ -429,7 +429,7 @@ export default function Findings({ engagement }: Props) {
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.35, marginBottom: 4 }}>{f.title}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-3)', display: 'flex', gap: 8 }}>
-                  {f.target && <span style={{ fontFamily: 'var(--mono)' }}>{f.target}</span>}
+                  {f.affected_target && <span style={{ fontFamily: 'var(--mono)' }}>{f.affected_target}</span>}
                   {f.category && <span>{f.category}</span>}
                   <span style={{ marginLeft: 'auto' }}>{new Date(f.updated_at).toLocaleDateString()}</span>
                 </div>

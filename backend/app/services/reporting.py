@@ -205,12 +205,9 @@ def render_pdf(html: str) -> tuple[bytes, str]:
         from weasyprint import HTML as WeasyprintHTML
         pdf = WeasyprintHTML(string=html).write_pdf()
         return pdf, "application/pdf"
-    except ImportError:
-        logger.warning("reporting.weasyprint_unavailable", reason="weasyprint not installed; returning HTML")
-        return html.encode("utf-8"), "text/html; charset=utf-8"
     except Exception as exc:
-        logger.error("reporting.pdf_error", error=str(exc))
-        raise
+        logger.warning("reporting.pdf_fallback", reason=str(exc))
+        return html.encode("utf-8"), "text/html; charset=utf-8"
 
 
 def generate_executive_report(

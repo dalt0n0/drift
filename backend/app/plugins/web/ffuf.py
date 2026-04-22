@@ -16,13 +16,30 @@ _WORDLIST_CANDIDATES = [
     "/usr/share/wordlists/dirb/common.txt",
 ]
 
+# Minimal built-in wordlist used when no system wordlist is available
+_BUILTIN_WORDS = [
+    ".env", ".git", ".htaccess", ".htpasswd", "admin", "api", "api/v1", "api/v2",
+    "backup", "backups", "cgi-bin", "config", "console", "dashboard", "debug",
+    "dev", "docs", "download", "env", "graphql", "health", "images", "includes",
+    "index.php", "info.php", "js", "login", "logout", "metrics", "panel", "phpmyadmin",
+    "server-status", "setup", "staging", "static", "status", "swagger", "swagger-ui",
+    "swagger-ui.html", "test", "upload", "uploads", "v1", "v2", "web.config",
+    "wp-admin", "wp-login.php", "xmlrpc.php",
+]
 
-def _find_wordlist() -> str:
+
+def _find_wordlist() -> str | None:
     for path in _WORDLIST_CANDIDATES:
         if os.path.isfile(path):
             return path
-    # Return first candidate anyway; will fail with a clear error at runtime
-    return _WORDLIST_CANDIDATES[0]
+    return None
+
+
+def _write_builtin_wordlist() -> str:
+    f = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, dir="/tmp")
+    f.write("\n".join(_BUILTIN_WORDS) + "\n")
+    f.close()
+    return f.name
 
 
 class FfufPlugin(BasePlugin):
@@ -43,7 +60,10 @@ class FfufPlugin(BasePlugin):
     def build_command(self, inputs: dict) -> list[str]:
         targets = inputs.get("targets", [])
         target = targets[0] if targets else ""
-        wordlist = inputs.get("wordlist", _find_wordlist())
+        wordlist = inputs.get("wordlist") or _find_wordlist()
+        if not wordlist:
+            wordlist = _write_builtin_wordlist()
+            self._builtin_wordlist = wordlist
         filter_codes = inputs.get("filter_codes", "404,400,403")
         extensions = inputs.get("extensions", "")
 
@@ -79,6 +99,13 @@ class FfufPlugin(BasePlugin):
                 with open(output_file) as f:
                     raw = f.read().strip()
                 os.unlink(output_file)
+            except OSError:
+                pass
+
+        builtin_wl = getattr(self, "_builtin_wordlist", None)
+        if builtin_wl and os.path.isfile(builtin_wl):
+            try:
+                os.unlink(builtin_wl)
             except OSError:
                 pass
 

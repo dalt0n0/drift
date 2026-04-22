@@ -219,7 +219,7 @@ async def delete_finding(
     current_user: CurrentUser,
     db: DB,
 ):
-    require_role(current_user.role, Role.lead)
+    require_role(current_user.role, Role.tester)
     finding = await _get_finding_or_404(db, finding_id)
 
     await audit_svc.log(
