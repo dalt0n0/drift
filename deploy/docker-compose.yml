@@ -83,8 +83,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      tools:
-        condition: service_started
     networks:
       - internal
       - external
