@@ -186,7 +186,11 @@ async def login(body: LoginRequest, request: Request, response: Response, db: DB
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
         path="/api/auth",
     )
-    return TokenResponse(access_token=access_token, expires_in=expires_in)
+    return TokenResponse(
+        access_token=access_token,
+        expires_in=expires_in,
+        must_change_password=user.must_change_password,
+    )
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -342,6 +346,7 @@ async def change_password(
         raise _problem(401, "Unauthorized", "Current password is incorrect")
     current_user.hashed_password = hash_password(body.new_password)
     current_user.password_changed_at = datetime.now(timezone.utc)
+    current_user.must_change_password = False
     result = await db.execute(
         select(RefreshToken).where(
             RefreshToken.user_id == current_user.id, RefreshToken.is_revoked == False,

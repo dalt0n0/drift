@@ -63,6 +63,9 @@ export const getRun = (engagementId: string, runId: string) =>
 export const createRun = (engagementId: string, plugin: string, params: Record<string, unknown>) =>
   api.post<EngagementRun>(`/engagements/${engagementId}/runs`, { plugin, params }).then(r => r.data)
 
+export const changePassword = (current_password: string, new_password: string) =>
+  api.post('/auth/change-password', { current_password, new_password })
+
 // ── Audit ─────────────────────────────────────────────────────────────
 export const getAudit = (limit = 50) =>
   api.get<AuditEntry[]>(`/audit?limit=${limit}`).then(r => r.data)

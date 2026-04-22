@@ -17,6 +17,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     last_login_at: datetime | None
+    must_change_password: bool
 
     model_config = {"from_attributes": True}
 

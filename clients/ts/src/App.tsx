@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Shell } from './components/Shell'
 import Login from './screens/Login'
+import ChangePassword from './screens/ChangePassword'
 import Dashboard from './screens/Dashboard'
 import Findings from './screens/Findings'
 import Targets from './screens/Targets'
@@ -105,7 +106,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-
+      <Route path="/change-password" element={
+        <RequireAuth><ChangePassword /></RequireAuth>
+      } />
       <Route path="/*" element={
         <RequireAuth>
           <AppShell />
