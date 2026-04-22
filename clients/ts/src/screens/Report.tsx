@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Ic } from '../components/Icon'
 import { Button, Card, EmptyState, FieldRow, Input, Modal, SectionHeader, Select, SevPill, Spinner, Tag } from '../components/primitives'
-import { getFindings } from '../api'
+import { getFindings, downloadReport } from '../api'
 import type { Engagement, Finding } from '../types'
 
 interface Props { engagement: Engagement | null }
@@ -202,8 +202,11 @@ const DEFAULT_BLOCKS: Block[] = [
 export default function Report({ engagement }: Props) {
   const [blocks, setBlocks] = useState<Block[]>(DEFAULT_BLOCKS)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [exportFormat, setExportFormat] = useState<'pdf' | 'md' | 'json'>('pdf')
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'html' | 'json' | 'csv' | 'sarif'>('pdf')
+  const [exportType, setExportType] = useState<'executive' | 'technical' | 'client'>('technical')
   const [exportOpen, setExportOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
 
   const { data: findings = [], isLoading } = useQuery({
     queryKey: ['findings', engagement?.id],
@@ -327,23 +330,54 @@ export default function Report({ engagement }: Props) {
 
       <BlockPicker open={pickerOpen} onClose={() => setPickerOpen(false)} onAdd={addBlock} />
 
-      <Modal open={exportOpen} onClose={() => setExportOpen(false)} title="Export report" width={400}>
+      <Modal open={exportOpen} onClose={() => { setExportOpen(false); setExportError('') }} title="Export report" width={420}>
         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <FieldRow label="Report type">
+            <Select value={exportType} onChange={v => setExportType(v as 'executive' | 'technical' | 'client')}>
+              <option value="executive">Executive summary</option>
+              <option value="technical">Technical (full)</option>
+              <option value="client">Client-facing</option>
+            </Select>
+          </FieldRow>
           <FieldRow label="Format">
-            <Select value={exportFormat} onChange={v => setExportFormat(v as 'pdf' | 'md' | 'json')}>
+            <Select value={exportFormat} onChange={v => setExportFormat(v as 'pdf' | 'html' | 'json' | 'csv' | 'sarif')}>
               <option value="pdf">PDF</option>
-              <option value="md">Markdown</option>
+              <option value="html">HTML</option>
               <option value="json">JSON (machine-readable)</option>
+              <option value="csv">CSV</option>
+              <option value="sarif">SARIF</option>
             </Select>
           </FieldRow>
           <div style={{ padding: '10px 12px', background: 'var(--bg-2)', borderRadius: 6, fontSize: 12, color: 'var(--text-3)' }}>
             Exports are generated server-side and include all finding details, scope, and metadata.
           </div>
+          {exportError && (
+            <div style={{ padding: '8px 12px', borderRadius: 6, background: 'rgba(255,74,94,0.10)', border: '1px solid rgba(255,74,94,0.25)', color: 'var(--crit)', fontSize: 12 }}>
+              <Ic name="alertTriangle" size={12} style={{ marginRight: 6 }} />
+              {exportError}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <Button variant="ghost" onClick={() => setExportOpen(false)}>Cancel</Button>
-            <Button variant="primary" icon={<Ic name="download" size={13} />}
-              onClick={() => { window.open(`/api/engagements/${engagement?.id}/report?format=${exportFormat}`, '_blank'); setExportOpen(false) }}>
-              Download
+            <Button variant="ghost" onClick={() => { setExportOpen(false); setExportError('') }}>Cancel</Button>
+            <Button
+              variant="primary"
+              icon={<Ic name="download" size={13} />}
+              disabled={isExporting}
+              onClick={async () => {
+                setExportError('')
+                setIsExporting(true)
+                try {
+                  const token = localStorage.getItem('drift.token') || ''
+                  await downloadReport(engagement!.id, exportType, exportFormat, token)
+                  setExportOpen(false)
+                } catch (e: unknown) {
+                  setExportError(e instanceof Error ? e.message : 'Export failed.')
+                } finally {
+                  setIsExporting(false)
+                }
+              }}
+            >
+              {isExporting ? 'Generating…' : 'Download'}
             </Button>
           </div>
         </div>

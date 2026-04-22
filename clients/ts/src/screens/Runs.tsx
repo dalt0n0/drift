@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Ic } from '../components/Icon'
 import { Button, Card, EmptyState, FieldRow, Input, Modal, Select, Spinner, Tag } from '../components/primitives'
-import { getRuns, createRun, confirmAuthorization } from '../api'
+import { getRuns, createRun, confirmAuthorization, cancelRun, deleteRun } from '../api'
 import type { Engagement, EngagementRun } from '../types'
 
 interface Props { engagement: Engagement | null }
@@ -106,11 +106,24 @@ function LaunchModal({
   )
 }
 
-function RunDetail({ run }: { run: EngagementRun }) {
+function RunDetail({ run, engagementId, onMutate }: { run: EngagementRun; engagementId: string; onMutate: () => void }) {
   const statusColor = statusColors[run.status] || 'var(--text-3)'
   const plugins = run.pipeline_config?.plugins ?? []
   const params = run.pipeline_config?.params ?? {}
   const completed = run.checkpoint?.completed_plugins ?? []
+
+  const cancel = useMutation({
+    mutationFn: () => cancelRun(run.id),
+    onSuccess: onMutate,
+  })
+
+  const del = useMutation({
+    mutationFn: () => deleteRun(run.id),
+    onSuccess: onMutate,
+  })
+
+  const canCancel = run.status === 'pending' || run.status === 'running'
+  const canDelete = run.status === 'completed' || run.status === 'failed' || run.status === 'cancelled'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -137,9 +150,26 @@ function RunDetail({ run }: { run: EngagementRun }) {
             <span style={{ fontFamily: 'var(--mono)' }}>{(params as Record<string, string>).target}</span>
           </div>
         )}
-        <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 11.5, color: 'var(--text-3)' }}>
-          {run.started_at && <span>Started: {new Date(run.started_at).toLocaleString()}</span>}
-          {run.completed_at && <span>Finished: {new Date(run.completed_at).toLocaleString()}</span>}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+          <div style={{ display: 'flex', gap: 16, fontSize: 11.5, color: 'var(--text-3)' }}>
+            {run.started_at && <span>Started: {new Date(run.started_at).toLocaleString()}</span>}
+            {run.completed_at && <span>Finished: {new Date(run.completed_at).toLocaleString()}</span>}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {canCancel && (
+              <Button variant="secondary" size="sm" icon={<Ic name="x" size={12} />}
+                onClick={() => cancel.mutate()} disabled={cancel.isPending}>
+                {cancel.isPending ? 'Cancelling…' : 'Cancel'}
+              </Button>
+            )}
+            {canDelete && (
+              <Button variant="ghost" size="sm" icon={<Ic name="trash" size={12} />}
+                onClick={() => del.mutate()} disabled={del.isPending}
+                style={{ color: 'var(--crit)' }}>
+                {del.isPending ? 'Deleting…' : 'Delete'}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -294,7 +324,14 @@ export default function Runs({ engagement }: Props) {
       {/* Detail */}
       <div style={{ flex: 1, minWidth: 0, background: 'var(--bg)' }}>
         {selected ? (
-          <RunDetail run={selected} />
+          <RunDetail
+            run={selected}
+            engagementId={engagement.id}
+            onMutate={() => {
+              qc.invalidateQueries({ queryKey: ['runs', engagement.id] })
+              setSelectedId(null)
+            }}
+          />
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
             <EmptyState icon="terminal" title="Select a run" body="Click a run to view its details." action={

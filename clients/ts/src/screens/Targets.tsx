@@ -2,10 +2,69 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Ic } from '../components/Icon'
 import { Button, Card, EmptyState, FieldRow, IconButton, Input, Modal, Select, Spinner, Tag } from '../components/primitives'
-import { getScope, addScopeItem, deleteScopeItem } from '../api'
+import { getScope, addScopeItem, deleteScopeItem, createRun } from '../api'
 import type { Engagement, ScopeItem, ScopeType } from '../types'
 
 interface Props { engagement: Engagement | null }
+
+const PLUGINS = [
+  { id: 'subfinder', label: 'Subfinder — subdomain enum' },
+  { id: 'httpx', label: 'httpx — HTTP probing' },
+  { id: 'nmap', label: 'Nmap — port scan' },
+  { id: 'nuclei', label: 'Nuclei — vuln templates' },
+  { id: 'nikto', label: 'Nikto — web scanner' },
+  { id: 'gobuster', label: 'Gobuster — dir brute-force' },
+  { id: 'ffuf', label: 'ffuf — web fuzzer' },
+  { id: 'sslyze', label: 'SSLyze — TLS analysis' },
+  { id: 'enum4linux_ng', label: 'enum4linux-ng — SMB enum' },
+]
+
+function ScanTargetModal({ open, onClose, target, engagementId }: {
+  open: boolean; onClose: () => void; target: string; engagementId: string
+}) {
+  const qc = useQueryClient()
+  const [plugin, setPlugin] = useState(PLUGINS[0].id)
+  const [error, setError] = useState('')
+
+  const run = useMutation({
+    mutationFn: () => createRun(engagementId, plugin, { target }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['runs', engagementId] })
+      setError('')
+      onClose()
+    },
+    onError: (err: unknown) => {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setError(typeof detail === 'string' ? detail : 'Failed to launch scan.')
+    },
+  })
+
+  return (
+    <Modal open={open} onClose={onClose} title="Scan target" width={420}>
+      <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ padding: '8px 12px', background: 'var(--bg-2)', borderRadius: 6, fontFamily: 'var(--mono)', fontSize: 13 }}>
+          {target}
+        </div>
+        <FieldRow label="Plugin">
+          <Select value={plugin} onChange={setPlugin}>
+            {PLUGINS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+          </Select>
+        </FieldRow>
+        {error && (
+          <div style={{ padding: '8px 12px', borderRadius: 6, background: 'rgba(255,74,94,0.10)', border: '1px solid rgba(255,74,94,0.25)', color: 'var(--crit)', fontSize: 12 }}>
+            {error}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" icon={<Ic name="play" size={13} />} onClick={() => run.mutate()} disabled={run.isPending}>
+            {run.isPending ? 'Launching…' : 'Launch scan'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
 
 const SCOPE_TYPES: ScopeType[] = ['host', 'ip', 'cidr', 'url', 'wildcard']
 
@@ -61,6 +120,7 @@ export default function Targets({ engagement }: Props) {
   const [addOpen, setAddOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
+  const [scanTarget, setScanTarget] = useState<string | null>(null)
 
   const { data: scope = [], isLoading } = useQuery({
     queryKey: ['scope', engagement?.id],
@@ -150,30 +210,38 @@ export default function Targets({ engagement }: Props) {
       ) : view === 'table' ? (
         <Card padding={0}>
           {/* Table header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr 80px 1fr 40px', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--line)', fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            <span>Type</span><span>Value</span><span>Added</span><span>Notes</span><span />
+          <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr 80px 1fr 80px 40px', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--line)', fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <span>Type</span><span>Value</span><span>Added</span><span>Notes</span><span /><span />
           </div>
           {filtered.map(item => (
-            <ScopeRow key={item.id} item={item} onDelete={() => remove.mutate(item.id)} />
+            <ScopeRow key={item.id} item={item} onDelete={() => remove.mutate(item.id)} onScan={() => setScanTarget(item.value)} />
           ))}
         </Card>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
           {filtered.map(item => (
-            <ScopeCard key={item.id} item={item} onDelete={() => remove.mutate(item.id)} />
+            <ScopeCard key={item.id} item={item} onDelete={() => remove.mutate(item.id)} onScan={() => setScanTarget(item.value)} />
           ))}
         </div>
       )}
 
       <AddScopeModal open={addOpen} onClose={() => setAddOpen(false)} engagementId={engagement.id} />
+      {scanTarget && (
+        <ScanTargetModal
+          open={!!scanTarget}
+          onClose={() => setScanTarget(null)}
+          target={scanTarget}
+          engagementId={engagement.id}
+        />
+      )}
     </div>
   )
 }
 
-function ScopeRow({ item, onDelete }: { item: ScopeItem; onDelete: () => void }) {
+function ScopeRow({ item, onDelete, onScan }: { item: ScopeItem; onDelete: () => void; onScan: () => void }) {
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: '90px 1fr 80px 1fr 40px',
+      display: 'grid', gridTemplateColumns: '90px 1fr 80px 1fr 80px 40px',
       gap: 12, alignItems: 'center', padding: '10px 16px',
       borderBottom: '1px solid var(--line)',
     }} className="hover-row">
@@ -187,12 +255,13 @@ function ScopeRow({ item, onDelete }: { item: ScopeItem; onDelete: () => void })
       <div style={{ fontSize: 12, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {item.notes || '—'}
       </div>
+      <Button variant="secondary" size="sm" icon={<Ic name="play" size={11} />} onClick={onScan}>Scan</Button>
       <IconButton icon={<Ic name="trash" size={13} />} onClick={onDelete} style={{ color: 'var(--crit)' }} />
     </div>
   )
 }
 
-function ScopeCard({ item, onDelete }: { item: ScopeItem; onDelete: () => void }) {
+function ScopeCard({ item, onDelete, onScan }: { item: ScopeItem; onDelete: () => void; onScan: () => void }) {
   const color = typeColors[item.type] || 'var(--text-3)'
   return (
     <Card padding={14} hover>
@@ -207,8 +276,11 @@ function ScopeCard({ item, onDelete }: { item: ScopeItem; onDelete: () => void }
         {item.value}
       </div>
       {item.notes && <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{item.notes}</div>}
-      <div style={{ fontSize: 11, color: 'var(--text-4)', marginTop: 8, fontFamily: 'var(--mono)' }}>
-        Added {new Date(item.created_at).toLocaleDateString()}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+        <div style={{ fontSize: 11, color: 'var(--text-4)', fontFamily: 'var(--mono)' }}>
+          Added {new Date(item.created_at).toLocaleDateString()}
+        </div>
+        <Button variant="secondary" size="sm" icon={<Ic name="play" size={11} />} onClick={onScan}>Scan</Button>
       </div>
     </Card>
   )

@@ -70,6 +70,36 @@ export const createRun = (engagementId: string, plugin: string, params: Record<s
 export const confirmAuthorization = (engagementId: string) =>
   api.post<Engagement>(`/engagements/${engagementId}/authorization/confirm`).then(r => r.data)
 
+export const cancelRun = (runId: string) =>
+  api.post<EngagementRun>(`/runs/${runId}/cancel`).then(r => r.data)
+
+export const deleteRun = (runId: string) =>
+  api.delete(`/runs/${runId}`)
+
+// ── Reports ───────────────────────────────────────────────────────────
+export const downloadReport = async (
+  engagementId: string,
+  reportType: 'executive' | 'technical' | 'client',
+  format: 'pdf' | 'html' | 'json' | 'csv' | 'sarif',
+  token: string,
+): Promise<void> => {
+  const res = await fetch(`/api/reports/engagements/${engagementId}/reports`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ report_type: reportType, format }),
+  })
+  if (!res.ok) throw new Error(`Report generation failed: ${res.status}`)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `drift_${reportType}_${engagementId}.${format}`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 export const changePassword = (current_password: string, new_password: string) =>
   api.post('/auth/change-password', { current_password, new_password })
 
