@@ -76,6 +76,12 @@ services:
       - auditlogs:/var/drift/audit
       # Docker socket — lets the API exec into the tools container
       - /var/run/docker.sock:/var/run/docker.sock
+    # Add the host docker group as a supplementary group so the drift user
+    # can access the mounted socket. Find your GID with:
+    #   stat -c '%g' /var/run/docker.sock
+    # then set DOCKER_GID=<value> in .env (default 999 works on most systems)
+    group_add:
+      - "${DOCKER_GID:-999}"
     ports:
       - "8000:8000"
     depends_on:
