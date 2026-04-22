@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Ic } from '../components/Icon'
-import { Avatar, AvatarStack, Button, Card, KPI, SevPill, SeverityBar, Progress, Sparkline, SectionHeader, StatusPill, EmptyState, Spinner } from '../components/primitives'
+import { Avatar, Button, Card, KPI, SevPill, Progress, SectionHeader, StatusPill, EmptyState, Spinner } from '../components/primitives'
 import { getEngagements, getFindings, getRuns } from '../api'
 import type { Engagement, Finding } from '../types'
 
@@ -9,11 +9,17 @@ interface Props {
   onNav: (id: string) => void
 }
 
-const phases = ['Scoping', 'Recon', 'Discovery', 'Exploitation', 'Reporting', 'Review']
+const phases: { key: string; label: string }[] = [
+  { key: 'draft', label: 'Draft' },
+  { key: 'active', label: 'Active' },
+  { key: 'paused', label: 'Paused' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'archived', label: 'Archived' },
+]
 
-function getPhaseProgress(phase: string | undefined) {
-  if (!phase) return 0
-  const idx = phases.findIndex(p => p.toLowerCase() === phase.toLowerCase())
+function getPhaseProgress(status: string | undefined) {
+  if (!status) return 0
+  const idx = phases.findIndex(p => p.key === status)
   return idx < 0 ? 0 : idx / (phases.length - 1)
 }
 
@@ -44,8 +50,7 @@ export default function Dashboard({ engagement, onNav }: Props) {
   const total = findings.length
   const open = findings.filter(f => f.status === 'open' || f.status === 'triaged').length
   const resolved = findings.filter(f => f.status === 'resolved').length
-  const progress = getPhaseProgress(engagement.engagement_type)
-  const sparkData = [2, 4, 3, 6, 5, 8, 7, 10, open]
+  const progress = getPhaseProgress(engagement.status)
 
   const startDate = engagement.start_date ? new Date(engagement.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
   const endDate = engagement.end_date ? new Date(engagement.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
@@ -61,11 +66,11 @@ export default function Dashboard({ engagement, onNav }: Props) {
               boxShadow: '0 0 0 3px rgba(52,211,153,0.15)',
             }} />
             <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text-3)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-              {engagement.status} · {engagement.engagement_type || 'External'}
+              {engagement.status}{engagement.client_name ? ` · ${engagement.client_name}` : ''}
             </span>
           </div>
           <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.025em', marginBottom: 8 }}>
-            {engagement.name}
+            {engagement.title}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, color: 'var(--text-3)', fontSize: 12.5 }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -80,7 +85,6 @@ export default function Dashboard({ engagement, onNav }: Props) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          <Button variant="ghost" icon={<Ic name="download" size={14} />}>Export</Button>
           <Button variant="secondary" icon={<Ic name="play" size={13} />} onClick={() => onNav('runs')}>Run scan</Button>
           <Button variant="primary" icon={<Ic name="plus" size={14} />} onClick={() => onNav('findings')}>New finding</Button>
         </div>
@@ -91,7 +95,7 @@ export default function Dashboard({ engagement, onNav }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ fontSize: 12.5, fontWeight: 500 }}>Engagement progress</div>
           <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
-            {engagement.status} · {engagement.engagement_type || 'External Web'}
+            {engagement.status}
           </div>
         </div>
         <div style={{ position: 'relative', height: 24 }}>
@@ -99,9 +103,9 @@ export default function Dashboard({ engagement, onNav }: Props) {
           <div style={{ position: 'absolute', left: 0, top: 10, height: 4, width: `${progress * 100}%`, background: 'linear-gradient(90deg, var(--accent) 0%, #ffcc55 100%)', borderRadius: 999 }} />
           {phases.map((p, i, arr) => {
             const pct = i / (arr.length - 1)
-            const current = engagement.status === p.toLowerCase() || engagement.engagement_type === p
+            const current = engagement.status === p.key
             return (
-              <div key={p} style={{ position: 'absolute', left: `${pct * 100}%`, top: 0, transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+              <div key={p.key} style={{ position: 'absolute', left: `${pct * 100}%`, top: 0, transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                 <div style={{
                   width: current ? 12 : 8, height: current ? 12 : 8, borderRadius: 999,
                   marginTop: current ? 6 : 8,
@@ -114,7 +118,7 @@ export default function Dashboard({ engagement, onNav }: Props) {
           })}
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2, fontSize: 10.5, color: 'var(--text-3)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-          {phases.map(p => <span key={p} style={{ width: '16.6%', textAlign: 'center' }}>{p}</span>)}
+          {phases.map(p => <span key={p.key} style={{ width: `${100 / phases.length}%`, textAlign: 'center' }}>{p.label}</span>)}
         </div>
       </Card>
 
@@ -123,17 +127,14 @@ export default function Dashboard({ engagement, onNav }: Props) {
         <KPI
           label="Open findings"
           value={open}
-          delta={open > 0 ? `+${open}` : '0'}
-          deltaLabel="requiring attention"
-          spark={<Sparkline data={sparkData} color="var(--accent)" fill="rgba(255,170,0,0.12)" width={200} height={30} />}
+          deltaLabel={open > 0 ? 'requiring attention' : 'all clear'}
           icon={<Ic name="bug" size={14} />}
         />
         <KPI
           label="Critical · unresolved"
           value={counts.critical}
           color={counts.critical > 0 ? 'var(--crit)' : undefined}
-          deltaLabel={counts.critical > 0 ? 'immediate action required' : 'none found — good'}
-          spark={<Sparkline data={[0, 0, counts.critical]} color="var(--crit)" fill="rgba(255,74,94,0.15)" width={200} height={30} />}
+          deltaLabel={counts.critical > 0 ? 'immediate action required' : 'none found'}
           icon={<Ic name="zap" size={14} />}
         />
         <KPI
@@ -290,16 +291,13 @@ export default function Dashboard({ engagement, onNav }: Props) {
               <Card key={e.id} padding={0} style={{ overflow: 'hidden' }} hover>
                 <div style={{ padding: '14px 14px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                    <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text-3)', padding: '1px 5px', background: 'var(--bg-3)', borderRadius: 3, textTransform: 'uppercase' }}>
-                      {e.engagement_type || 'pentest'}
-                    </span>
                     <span style={{ fontSize: 10.5, color: e.status === 'active' ? 'var(--ok)' : 'var(--text-3)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <span style={{ width: 6, height: 6, borderRadius: 999, background: e.status === 'active' ? 'var(--ok)' : 'var(--text-3)' }} />
                       {e.status}
                     </span>
                   </div>
-                  <div style={{ fontSize: 13.5, fontWeight: 500, marginBottom: 3 }}>{e.client_name || e.name}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginBottom: 10 }}>{e.name}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 500, marginBottom: 3 }}>{e.title}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginBottom: 10 }}>{e.client_name}</div>
                   <Progress value={e.status === 'completed' ? 1 : e.status === 'active' ? 0.5 : 0.1} color={e.status === 'paused' ? 'var(--text-3)' : 'var(--accent)'} height={3} />
                 </div>
                 <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)', fontSize: 11, color: 'var(--text-3)' }}>

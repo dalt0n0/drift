@@ -1,6 +1,6 @@
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { Ic } from './Icon'
-import { Avatar, Button, IconButton, Kbd, StatusPill } from './primitives'
+import { Avatar, IconButton } from './primitives'
 import type { Engagement, User } from '../types'
 
 // ── Sidebar ───────────────────────────────────────────────────────────
@@ -12,7 +12,6 @@ const navMain = [
   { id: 'report',    label: 'Report',    icon: 'report',    count: null, warn: false },
 ]
 const navWorkspace = [
-  { id: 'vault',    label: 'Vault',          icon: 'key' },
   { id: 'audit',    label: 'Audit log',      icon: 'shield' },
   { id: 'settings', label: 'Settings',       icon: 'settings' },
 ]
@@ -60,12 +59,26 @@ interface SidebarProps {
   onSwitchEngagement: (id: string) => void
   user: User | null
   findingsCount: number
+  onSignOut: () => void
 }
 
-export function Sidebar({ current, onNav, engagement, engagements, onSwitchEngagement, user, findingsCount }: SidebarProps) {
+export function Sidebar({ current, onNav, engagement, engagements, onSwitchEngagement, user, findingsCount, onSignOut }: SidebarProps) {
   const [engOpen, setEngOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
 
-  const initials = engagement?.client_name?.slice(0, 2).toUpperCase() || engagement?.name?.slice(0, 2).toUpperCase() || '??'
+  useEffect(() => {
+    if (!userMenuOpen) return
+    const onDocClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [userMenuOpen])
+
+  const initials = engagement?.client_name?.slice(0, 2).toUpperCase() || engagement?.title?.slice(0, 2).toUpperCase() || '??'
 
   return (
     <aside style={{
@@ -114,7 +127,7 @@ export function Sidebar({ current, onNav, engagement, engagements, onSwitchEngag
           }}>{initials}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12.5, color: 'var(--text)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {engagement?.client_name || engagement?.name || 'No engagement'}
+              {engagement?.client_name || engagement?.title || 'No engagement'}
             </div>
             <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
               {engagement?.status || '—'}
@@ -138,7 +151,7 @@ export function Sidebar({ current, onNav, engagement, engagements, onSwitchEngag
               }} className="hover-row">
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {e.client_name || e.name}
+                    {e.client_name || e.title}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>{e.status}</div>
                 </div>
@@ -156,22 +169,8 @@ export function Sidebar({ current, onNav, engagement, engagements, onSwitchEngag
         )}
       </div>
 
-      {/* Search */}
-      <div style={{ padding: '10px 10px 6px' }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '5px 9px', height: 28,
-          background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 6,
-          color: 'var(--text-3)', fontSize: 12, cursor: 'pointer',
-        }}>
-          <Ic name="search" size={13} />
-          <span style={{ flex: 1 }}>Search</span>
-          <Kbd>⌘</Kbd><Kbd>K</Kbd>
-        </div>
-      </div>
-
       {/* Main nav */}
-      <div style={{ padding: '4px 10px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div style={{ padding: '14px 10px 4px', display: 'flex', flexDirection: 'column', gap: 2 }}>
         {navMain.map(n => (
           <NavItem key={n.id} item={n} active={current === n.id} onClick={() => onNav(n.id)} findingsCount={findingsCount} />
         ))}
@@ -189,17 +188,46 @@ export function Sidebar({ current, onNav, engagement, engagements, onSwitchEngag
       <div style={{ flex: 1 }} />
 
       {/* User */}
-      <div style={{ padding: '10px 12px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 9 }}>
+      <div ref={userMenuRef} style={{ padding: '10px 12px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 9, position: 'relative' }}>
         <Avatar id={user?.username || 'U'} size={26} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 12.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {user?.full_name || user?.username || 'User'}
           </div>
           <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
-            {user?.role} · drift.local
+            {user?.role || '—'}
           </div>
         </div>
-        <IconButton icon={<Ic name="moreV" size={14} />} size={22} onClick={() => onNav('settings')} />
+        <IconButton icon={<Ic name="moreV" size={14} />} size={22} onClick={() => setUserMenuOpen(o => !o)} active={userMenuOpen} />
+        {userMenuOpen && (
+          <div style={{
+            position: 'absolute', bottom: 'calc(100% - 4px)', right: 10, zIndex: 60,
+            background: 'var(--bg-1)', border: '1px solid var(--line-2)',
+            borderRadius: 8, boxShadow: 'var(--shadow-lg)', overflow: 'hidden',
+            minWidth: 168,
+          }}>
+            <button onClick={() => { setUserMenuOpen(false); onNav('settings') }} style={{
+              width: '100%', textAlign: 'left', padding: '9px 12px',
+              display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text)',
+            }} className="hover-row">
+              <Ic name="settings" size={13} /> Settings
+            </button>
+            <button onClick={() => { setUserMenuOpen(false); onNav('change-password') }} style={{
+              width: '100%', textAlign: 'left', padding: '9px 12px',
+              display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text)',
+              borderTop: '1px solid var(--line)',
+            }} className="hover-row">
+              <Ic name="key" size={13} /> Change password
+            </button>
+            <button onClick={() => { setUserMenuOpen(false); onSignOut() }} style={{
+              width: '100%', textAlign: 'left', padding: '9px 12px',
+              display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#ff8a99',
+              borderTop: '1px solid var(--line)',
+            }} className="hover-row">
+              <Ic name="logout" size={13} /> Sign out
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   )
@@ -256,14 +284,8 @@ export function Topbar({ breadcrumbs, right, railOpen, onToggleRail, notifCount 
 }
 
 // ── Activity Rail ─────────────────────────────────────────────────────
-export function ActivityRail({ onClose, engagementId }: { onClose: () => void; engagementId?: string }) {
+export function ActivityRail({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<'notif' | 'act'>('notif')
-
-  const mockNotifs = [
-    { id: 'n1', kind: 'critical', title: 'New critical finding opened', meta: 'Check Findings screen', when: 'just now', unread: true },
-    { id: 'n2', kind: 'scan', title: 'Scan run completed', meta: 'nuclei · 4 new results', when: '2m ago', unread: true },
-    { id: 'n3', kind: 'mention', title: 'Audit event recorded', meta: 'Finding status updated', when: '10m ago', unread: false },
-  ]
 
   return (
     <aside style={{
@@ -289,34 +311,20 @@ export function ActivityRail({ onClose, engagementId }: { onClose: () => void; e
 
       <div style={{ flex: 1, overflow: 'auto' }}>
         {tab === 'notif' && (
-          <div style={{ padding: '4px 0' }}>
-            {mockNotifs.map(n => (
-              <div key={n.id} style={{
-                display: 'flex', gap: 10, padding: '10px 14px',
-                borderBottom: '1px solid var(--line)',
-                background: n.unread ? 'rgba(255,170,0,0.025)' : 'transparent',
-                position: 'relative',
-              }}>
-                {n.unread && <div style={{ position: 'absolute', left: 6, top: 16, width: 5, height: 5, borderRadius: 999, background: 'var(--accent)' }} />}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 500, lineHeight: 1.35 }}>{n.title}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>{n.meta}</div>
-                  <div style={{ fontSize: 10.5, color: 'var(--text-4)', marginTop: 3, fontFamily: 'var(--mono)' }}>{n.when}</div>
-                </div>
-              </div>
-            ))}
+          <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: 12.5 }}>
+            No notifications yet.
           </div>
         )}
         {tab === 'act' && (
-          <div style={{ padding: '12px 14px', color: 'var(--text-3)', fontSize: 12.5 }}>
-            Activity stream will appear here as scans run and findings are updated.
+          <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: 12.5 }}>
+            Activity from scans and findings will appear here.
           </div>
         )}
       </div>
 
       <div style={{ padding: '10px 14px', borderTop: '1px solid var(--line)', fontSize: 11, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--ok)' }} />
-        API connected · real-time ready
+        API connected
       </div>
     </aside>
   )
@@ -342,7 +350,7 @@ interface ShellProps {
   selectedEngagement: Engagement | null
   onSelectEngagement: (e: Engagement) => void
   screen: Screen
-  onNav: (s: Screen) => void
+  onNav: (s: string) => void
   railOpen: boolean
   onToggleRail: () => void
   onSignOut: () => void
@@ -355,10 +363,7 @@ export function Shell({ user, engagements, selectedEngagement, onSelectEngagemen
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Sidebar
         current={screen}
-        onNav={(id) => {
-          if (id === 'new-engagement') return
-          onNav(id as Screen)
-        }}
+        onNav={(id) => onNav(id as Screen)}
         engagement={selectedEngagement}
         engagements={engagements}
         onSwitchEngagement={id => {
@@ -367,6 +372,7 @@ export function Shell({ user, engagements, selectedEngagement, onSelectEngagemen
         }}
         user={user}
         findingsCount={findingsCount}
+        onSignOut={onSignOut}
       />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         <Topbar
@@ -378,7 +384,7 @@ export function Shell({ user, engagements, selectedEngagement, onSelectEngagemen
           {children}
         </div>
       </div>
-      {railOpen && <ActivityRail onClose={onToggleRail} engagementId={selectedEngagement?.id} />}
+      {railOpen && <ActivityRail onClose={onToggleRail} />}
     </div>
   )
 }

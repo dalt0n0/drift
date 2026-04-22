@@ -245,7 +245,7 @@ export default function Report({ engagement }: Props) {
           {/* Doc header */}
           <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{engagement.name}</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{engagement.title}</div>
               <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2, fontFamily: 'var(--mono)' }}>
                 Draft · {new Date().toLocaleDateString()}
               </div>

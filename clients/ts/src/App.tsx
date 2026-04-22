@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Shell } from './components/Shell'
+import NewEngagementModal from './components/NewEngagementModal'
 import Login from './screens/Login'
 import ChangePassword from './screens/ChangePassword'
 import Dashboard from './screens/Dashboard'
@@ -33,6 +34,7 @@ function AppShell() {
     () => localStorage.getItem('drift.engagementId')
   )
   const [railOpen, setRailOpen] = useState(false)
+  const [newEngOpen, setNewEngOpen] = useState(false)
 
   const { data: user } = useQuery({ queryKey: ['me'], queryFn: getMe, staleTime: 60_000 })
   const { data: engagements = [] } = useQuery({
@@ -64,6 +66,8 @@ function AppShell() {
   }
 
   const handleNav = (screen: string) => {
+    if (screen === 'new-engagement') { setNewEngOpen(true); return }
+    if (screen === 'change-password') { navigate('/change-password'); return }
     navigate(`/${screen === 'dashboard' ? '' : screen}`)
   }
 
@@ -98,6 +102,11 @@ function AppShell() {
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <NewEngagementModal
+        open={newEngOpen}
+        onClose={() => setNewEngOpen(false)}
+        onCreated={(e) => { setEngagementId(e.id); localStorage.setItem('drift.engagementId', e.id) }}
+      />
     </Shell>
   )
 }
