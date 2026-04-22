@@ -81,7 +81,7 @@ function AppShell() {
       selectedEngagement={engagement}
       onSelectEngagement={e => { setEngagementId(e.id); localStorage.setItem('drift.engagementId', e.id) }}
       screen={screenFromPath()}
-      onNav={handleNav}
+      onNav={(id) => handleNav(id as Screen)}
       railOpen={railOpen}
       onToggleRail={() => setRailOpen(r => !r)}
       onSignOut={handleSignOut}
@@ -105,6 +105,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+
       <Route path="/*" element={
         <RequireAuth>
           <AppShell />

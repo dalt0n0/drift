@@ -44,7 +44,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
       fontSize: 12.5,
     }} className="hover-row">
       <div style={{ fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--text-3)' }}>
-        {new Date(entry.created_at).toLocaleString()}
+        {new Date(entry.timestamp).toLocaleString()}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <div style={{ width: 20, height: 20, borderRadius: 5, background: `${color}18`, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -54,10 +54,10 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <div style={{ width: 22, height: 22, borderRadius: 999, background: 'var(--accent-bg)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontFamily: 'var(--mono)', fontWeight: 600, border: '1px solid var(--accent-line)', flexShrink: 0 }}>
-          {(entry.actor_username || 'sys').slice(0, 2).toUpperCase()}
+          {(entry.actor_id || 'sys').slice(0, 2).toUpperCase()}
         </div>
         <span style={{ color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {entry.actor_username || 'system'}
+          {entry.actor_id || 'system'}
         </span>
       </div>
       <div style={{ color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -66,7 +66,9 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
         </span>
         {entry.action}
         {entry.detail && (
-          <span style={{ color: 'var(--text-3)', fontSize: 11.5, marginLeft: 6 }}>{entry.detail}</span>
+          <span style={{ color: 'var(--text-3)', fontSize: 11.5, marginLeft: 6 }}>
+            {JSON.stringify(entry.detail)}
+          </span>
         )}
       </div>
     </div>
@@ -95,7 +97,8 @@ export default function Audit({ engagement }: Props) {
     const verb = e.action?.split('_')[0] || ''
     const matchVerb = verbFilter === 'all' || verb === verbFilter
     const matchResource = resourceFilter === 'all' || e.resource_type === resourceFilter
-    const matchSearch = !search || e.action?.includes(search) || e.actor_username?.includes(search) || e.detail?.includes(search)
+    const detailStr = e.detail ? JSON.stringify(e.detail) : ''
+    const matchSearch = !search || e.action?.includes(search) || e.actor_id?.includes(search) || detailStr.includes(search)
     return matchVerb && matchResource && matchSearch
   })
 
