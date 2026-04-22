@@ -7,12 +7,69 @@ from datetime import datetime, timezone
 import structlog
 
 from app.database import AsyncSessionLocal
+from app.models.finding import Finding, FindingSeverity, FindingStatus
 from app.models.run import EngagementRun, RunStatus
 
 logger = structlog.get_logger(__name__)
 
 # Maximum log lines kept in checkpoint (prevents unbounded growth)
 _MAX_LOG_LINES = 2000
+
+
+async def _create_suggested_findings(
+    db,
+    run,
+    plugin_name: str,
+    result: dict,
+    target: str,
+) -> int:
+    """Create suggested Finding records from parsed plugin output."""
+    parsed = result.get("parsed", {})
+    if not parsed:
+        return 0
+
+    created = 0
+    findings_data = parsed.get("findings", [])
+
+    for item in findings_data:
+        if not isinstance(item, dict):
+            continue
+        msg = item.get("msg", "") or item.get("title", "") or item.get("description", "")
+        if not msg:
+            continue
+
+        # Determine severity
+        raw_sev = item.get("severity", "info")
+        try:
+            sev = FindingSeverity(raw_sev).value
+        except ValueError:
+            sev = FindingSeverity.info.value
+
+        title = msg[:256] if len(msg) > 256 else msg
+        description = msg
+
+        # Add URL/path context to description if available
+        path = item.get("path", "") or item.get("url", "")
+        if path and path not in description:
+            description = f"{description}\n\nPath: {path}"
+
+        finding = Finding(
+            engagement_id=run.engagement_id,
+            run_id=run.id,
+            title=title,
+            description=description,
+            severity=sev,
+            affected_target=target or item.get("url", "") or item.get("path", ""),
+            status=FindingStatus.suggested.value,
+            discovered_by=f"auto:{plugin_name}",
+            evidence={"raw": item, "plugin": plugin_name},
+        )
+        db.add(finding)
+        created += 1
+
+    if created:
+        await db.flush()
+    return created
 
 
 async def execute_run(run_id: uuid.UUID) -> None:
@@ -157,6 +214,9 @@ async def execute_run(run_id: uuid.UUID) -> None:
                             f"[{plugin_name}] Done in {duration}s"
                             + (f" — exit {result.get('exit_code')}" if result.get("exit_code") is not None else "")
                         )
+                        suggested_count = await _create_suggested_findings(db, run, plugin_name, result, target)
+                        if suggested_count:
+                            log_lines.append(f"[{plugin_name}] Created {suggested_count} suggested finding(s)")
 
                     logger.info(
                         "run_executor.plugin_done",

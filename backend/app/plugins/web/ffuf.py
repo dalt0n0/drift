@@ -2,12 +2,27 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 
 from app.plugins.base import BasePlugin
 from app.plugins.manifest import PluginManifest
 from app.plugins.tool_runner import ToolResult
 
-_DEFAULT_WORDLIST = "/usr/share/seclists/Discovery/Web-Content/common.txt"
+_WORDLIST_CANDIDATES = [
+    "/usr/share/seclists/Discovery/Web-Content/common.txt",
+    "/usr/share/wordlists/seclists/Discovery/Web-Content/common.txt",
+    "/usr/share/dirb/wordlists/common.txt",
+    "/usr/share/wordlists/dirb/common.txt",
+]
+
+
+def _find_wordlist() -> str:
+    for path in _WORDLIST_CANDIDATES:
+        if os.path.isfile(path):
+            return path
+    # Return first candidate anyway; will fail with a clear error at runtime
+    return _WORDLIST_CANDIDATES[0]
 
 
 class FfufPlugin(BasePlugin):
@@ -28,22 +43,24 @@ class FfufPlugin(BasePlugin):
     def build_command(self, inputs: dict) -> list[str]:
         targets = inputs.get("targets", [])
         target = targets[0] if targets else ""
-        wordlist = inputs.get("wordlist", _DEFAULT_WORDLIST)
+        wordlist = inputs.get("wordlist", _find_wordlist())
         filter_codes = inputs.get("filter_codes", "404,400,403")
         extensions = inputs.get("extensions", "")
 
         # Append FUZZ keyword to target URL
         url = target.rstrip("/") + "/FUZZ"
 
+        # Use /tmp output file so ffuf can write JSON (it appends extension)
+        self._output_file = tempfile.mktemp(suffix=".json", dir="/tmp")
+
         cmd = [
             "ffuf",
             "-u", url,
             "-w", wordlist,
             "-of", "json",
-            "-o", "/dev/stdout",
+            "-o", self._output_file,
             "-fc", filter_codes,
             "-v",
-            "-s",  # silent
         ]
         if extensions:
             cmd.extend(["-e", extensions])
@@ -54,8 +71,20 @@ class FfufPlugin(BasePlugin):
     def parse_output(self, result: ToolResult, inputs: dict) -> dict:
         findings = []
 
-        # ffuf JSON output can be one big JSON object or JSONL
-        raw = result.stdout.strip()
+        # Try to read from temp output file first
+        output_file = getattr(self, "_output_file", None)
+        raw = ""
+        if output_file and os.path.isfile(output_file):
+            try:
+                with open(output_file) as f:
+                    raw = f.read().strip()
+                os.unlink(output_file)
+            except OSError:
+                pass
+
+        if not raw:
+            raw = result.stdout.strip()
+
         if not raw:
             return {"findings": [], "total": 0}
 

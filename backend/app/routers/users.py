@@ -10,7 +10,7 @@ from app.core import audit as audit_svc
 from app.core.deps import CurrentUser, DB
 from app.core.permissions import Role, require_role
 from app.models.user import User
-from app.schemas.user import UserResponse, UserUpdateRequest
+from app.schemas.user import UserResponse, UserUpdateRequest, UserCreateRequest
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/users", tags=["users"])
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/", response_model=list[UserResponse])
 async def list_users(current_user: CurrentUser, db: DB):
-    require_role(current_user.role, Role.lead)
+    require_role(current_user.role, Role.viewer)
     result = await db.execute(select(User).order_by(User.created_at.desc()))
     return result.scalars().all()
 
@@ -26,6 +26,54 @@ async def list_users(current_user: CurrentUser, db: DB):
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: CurrentUser):
     return current_user
+
+
+@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    body: UserCreateRequest,
+    request: Request,
+    current_user: CurrentUser,
+    db: DB,
+):
+    """Admin-only: create a local user account."""
+    require_role(current_user.role, Role.admin)
+
+    from argon2 import PasswordHasher
+    from sqlalchemy import select as _select
+    from app.models.user import User
+
+    # Check for existing username/email
+    existing = await db.execute(_select(User).where(
+        (User.username == body.username) | (User.email == body.email)
+    ))
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"type": "about:blank", "title": "Conflict", "status": 409, "detail": "Username or email already exists."}
+        )
+
+    ph = PasswordHasher()
+    new_user = User(
+        username=body.username,
+        email=body.email,
+        full_name=body.full_name or body.username,
+        role=body.role or "viewer",
+        is_active=True,
+        hashed_password=ph.hash(body.password),
+        must_change_password=body.must_change_password if body.must_change_password is not None else True,
+    )
+    db.add(new_user)
+    await db.flush()
+
+    await audit_svc.log(
+        db, action="user.create", actor_id=current_user.id,
+        actor_ip=audit_svc.get_client_ip(request),
+        resource_type="user", resource_id=str(new_user.id),
+        after_state={"username": new_user.username, "email": new_user.email, "role": new_user.role},
+        request_id=request.headers.get("x-request-id"),
+    )
+
+    return new_user
 
 
 @router.get("/{user_id}", response_model=UserResponse)

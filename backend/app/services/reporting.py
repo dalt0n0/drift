@@ -192,22 +192,22 @@ def render_html(
     return template.render(**ctx)
 
 
-def render_pdf(html: str) -> bytes:
+def render_pdf(html: str) -> tuple[bytes, str]:
     """Convert an HTML string to PDF bytes using WeasyPrint.
 
     Falls back gracefully if WeasyPrint is not installed, returning the HTML as bytes
-    so callers can still get something useful.
+    with content_type text/html so callers can adapt.
 
     Returns:
-        PDF bytes, or HTML bytes if WeasyPrint is unavailable.
+        Tuple of (content_bytes, content_type).
     """
     try:
         from weasyprint import HTML as WeasyprintHTML
         pdf = WeasyprintHTML(string=html).write_pdf()
-        return pdf
+        return pdf, "application/pdf"
     except ImportError:
         logger.warning("reporting.weasyprint_unavailable", reason="weasyprint not installed; returning HTML")
-        return html.encode("utf-8")
+        return html.encode("utf-8"), "text/html; charset=utf-8"
     except Exception as exc:
         logger.error("reporting.pdf_error", error=str(exc))
         raise
@@ -218,12 +218,12 @@ def generate_executive_report(
     findings: list[Any],
     scope_items: list[Any] | None = None,
     as_pdf: bool = True,
-) -> bytes:
+) -> tuple[bytes, str]:
     """Generate an executive summary report (PDF or HTML)."""
     html = render_html("executive.html.jinja2", engagement, findings, scope_items)
     if as_pdf:
         return render_pdf(html)
-    return html.encode("utf-8")
+    return html.encode("utf-8"), "text/html; charset=utf-8"
 
 
 def generate_technical_report(
@@ -231,19 +231,19 @@ def generate_technical_report(
     findings: list[Any],
     scope_items: list[Any] | None = None,
     as_pdf: bool = True,
-) -> bytes:
+) -> tuple[bytes, str]:
     """Generate a full technical report (PDF or HTML)."""
     html = render_html("technical.html.jinja2", engagement, findings, scope_items)
     if as_pdf:
         return render_pdf(html)
-    return html.encode("utf-8")
+    return html.encode("utf-8"), "text/html; charset=utf-8"
 
 
 def generate_json_report(
     engagement: Any,
     findings: list[Any],
     scope_items: list[Any] | None = None,
-) -> bytes:
+) -> tuple[bytes, str]:
     """Generate a structured JSON report."""
     finding_dicts = [_finding_to_dict(f) for f in findings]
     finding_dicts.sort(key=lambda f: _SEVERITY_ORDER.get(f.get("severity", "info"), 99))
@@ -261,13 +261,13 @@ def generate_json_report(
         },
         "findings": finding_dicts,
     }
-    return json.dumps(report, indent=2, default=str).encode("utf-8")
+    return json.dumps(report, indent=2, default=str).encode("utf-8"), "application/json; charset=utf-8"
 
 
 def generate_csv_report(
     engagement: Any,
     findings: list[Any],
-) -> bytes:
+) -> tuple[bytes, str]:
     """Generate a CSV findings summary."""
     finding_dicts = [_finding_to_dict(f) for f in findings]
     finding_dicts.sort(key=lambda f: _SEVERITY_ORDER.get(f.get("severity", "info"), 99))
@@ -288,13 +288,13 @@ def generate_csv_report(
         row["cisa_kev"] = "Yes" if f.get("cisa_kev") else "No"
         writer.writerow(row)
 
-    return output.getvalue().encode("utf-8")
+    return output.getvalue().encode("utf-8"), "text/csv; charset=utf-8"
 
 
 def generate_sarif_report(
     engagement: Any,
     findings: list[Any],
-) -> bytes:
+) -> tuple[bytes, str]:
     """Generate a SARIF 2.1.0 report for CI/CD integration."""
     finding_dicts = [_finding_to_dict(f) for f in findings]
     eng_dict = _engagement_to_dict(engagement)
@@ -366,7 +366,7 @@ def generate_sarif_report(
         }],
     }
 
-    return json.dumps(sarif, indent=2, default=str).encode("utf-8")
+    return json.dumps(sarif, indent=2, default=str).encode("utf-8"), "application/json; charset=utf-8"
 
 
 def generate_client_report(
@@ -374,7 +374,7 @@ def generate_client_report(
     findings: list[Any],
     scope_items: list[Any] | None = None,
     as_pdf: bool = True,
-) -> bytes:
+) -> tuple[bytes, str]:
     """Generate a redacted client-facing executive report.
 
     Redacts: internal IPs, exploit details, tool command lines, HTTP request/response.
@@ -403,7 +403,7 @@ def generate_client_report(
     )
     if as_pdf:
         return render_pdf(html)
-    return html.encode("utf-8")
+    return html.encode("utf-8"), "text/html; charset=utf-8"
 
 
 def _severity_to_sarif_level(severity: str) -> str:
