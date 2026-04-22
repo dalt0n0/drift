@@ -103,8 +103,8 @@ function FindingsTableBlock({ findings }: { findings: Finding[] }) {
         <div key={f.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 90px 90px', gap: 12, alignItems: 'center', padding: '9px 12px', borderBottom: '1px solid var(--line)', fontSize: 12.5 }}>
           <SevPill sev={f.severity} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.title}</span>
-          <Tag tone="neutral" style={{ fontSize: 10.5 }}>{f.status}</Tag>
-          <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.affected_target || '—'}</span>
+          <Tag tone="neutral">{f.status}</Tag>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.target || '—'}</span>
         </div>
       ))}
       {sorted.length === 0 && (

@@ -1,14 +1,11 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Ic } from '../components/Icon'
 import { Button, Input } from '../components/primitives'
 import { login, getMe } from '../api'
-import type { User } from '../types'
 
-interface Props {
-  onLogin: (token: string, user: User) => void
-}
-
-export default function Login({ onLogin }: Props) {
+export default function Login() {
+  const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
@@ -21,8 +18,8 @@ export default function Login({ onLogin }: Props) {
     try {
       const { access_token } = await login(username, password)
       localStorage.setItem('drift.token', access_token)
-      const user = await getMe()
-      onLogin(access_token, user)
+      await getMe()
+      navigate('/', { replace: true })
     } catch {
       setError('Invalid credentials.')
     } finally {
