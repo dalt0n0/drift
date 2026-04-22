@@ -125,7 +125,7 @@ export const getSbomSummary = () =>
 
 // ── Users ─────────────────────────────────────────────────────────────
 export const getUsers = () =>
-  api.get<User[]>('/users').then(r => r.data)
+  api.get<User[]>('/users/').then(r => r.data)
 
 export const createUser = (body: {
   username: string
