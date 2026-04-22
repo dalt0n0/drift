@@ -39,7 +39,7 @@ export const deleteScopeItem = (engagementId: string, itemId: string) =>
 
 // ── Findings ──────────────────────────────────────────────────────────
 export const getFindings = (engagementId: string) =>
-  api.get<{ items: Finding[] }>(`/engagements/${engagementId}/findings`).then(r => r.data.items)
+  api.get<{ findings: Finding[] }>(`/engagements/${engagementId}/findings`).then(r => r.data.findings)
 
 export const getFinding = (engagementId: string, id: string) =>
   api.get<Finding>(`/engagements/${engagementId}/findings/${id}`).then(r => r.data)
@@ -61,7 +61,14 @@ export const getRun = (engagementId: string, runId: string) =>
   api.get<EngagementRun>(`/engagements/${engagementId}/runs/${runId}`).then(r => r.data)
 
 export const createRun = (engagementId: string, plugin: string, params: Record<string, unknown>) =>
-  api.post<EngagementRun>(`/engagements/${engagementId}/runs`, { plugin, params }).then(r => r.data)
+  api.post<EngagementRun>(`/engagements/${engagementId}/runs`, {
+    plugin_names: [plugin],
+    safe_mode: false,
+    params,
+  }).then(r => r.data)
+
+export const confirmAuthorization = (engagementId: string) =>
+  api.post<Engagement>(`/engagements/${engagementId}/authorization/confirm`).then(r => r.data)
 
 export const changePassword = (current_password: string, new_password: string) =>
   api.post('/auth/change-password', { current_password, new_password })

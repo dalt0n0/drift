@@ -82,6 +82,7 @@ class OrchestratorService:
         triggered_by: uuid.UUID,
         plugin_names: list[str] | None = None,
         safe_mode: bool = False,
+        params: dict | None = None,
     ) -> EngagementRun:
         """Create a new engagement run.
 
@@ -123,6 +124,7 @@ class OrchestratorService:
         pipeline_config = {
             "plugins": plan_names,
             "safe_mode": safe_mode,
+            "params": params or {},
             "plugin_configs": {
                 p.name: {
                     "timeout_seconds": p.timeout_seconds,

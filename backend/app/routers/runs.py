@@ -46,6 +46,7 @@ async def create_run(
             triggered_by=current_user.id,
             plugin_names=body.plugin_names,
             safe_mode=body.safe_mode,
+            params=body.params,
         )
     except AuthorizationNotConfirmedError as e:
         raise HTTPException(
