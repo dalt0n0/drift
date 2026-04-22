@@ -11,6 +11,9 @@ from app.models.run import EngagementRun, RunStatus
 
 logger = structlog.get_logger(__name__)
 
+# Maximum log lines kept in checkpoint (prevents unbounded growth)
+_MAX_LOG_LINES = 2000
+
 
 async def execute_run(run_id: uuid.UUID) -> None:
     """Background task: execute all plugins for a pending run.
@@ -38,6 +41,7 @@ async def execute_run(run_id: uuid.UUID) -> None:
             run.checkpoint = {
                 "completed_plugins": [],
                 "current_plugin": None,
+                "logs": [],
                 "results": {},
             }
             await db.commit()
@@ -68,22 +72,46 @@ async def execute_run(run_id: uuid.UUID) -> None:
             results: dict[str, dict] = {}
             errors: list[str] = []
 
+            # Shared in-memory log buffer — flushed to checkpoint after each plugin
+            log_lines: list[str] = []
+
+            def _make_publish(plugin_name: str):
+                """Return an async publish callback that appends to log_lines."""
+                async def publish(event: dict) -> None:
+                    evt_type = event.get("type", "")
+                    tool = event.get("tool", plugin_name)
+                    if evt_type == "output":
+                        line = event.get("line", "")
+                        if line:
+                            log_lines.append(line)
+                    elif evt_type == "progress":
+                        status = event.get("status", "")
+                        if status:
+                            log_lines.append(f"[{tool}] {status}")
+                    elif evt_type == "error":
+                        msg = event.get("message", "error")
+                        log_lines.append(f"[{tool}] ERROR: {msg}")
+                return publish
+
             for plugin_name in plugin_names:
-                # Update checkpoint
+                # Update checkpoint: mark plugin as current
                 run.checkpoint = {
                     **run.checkpoint,
                     "current_plugin": plugin_name,
+                    "logs": log_lines[-_MAX_LOG_LINES:],
                 }
                 await db.commit()
 
                 plugin_cls = get_plugin_class(plugin_name)
                 if not plugin_cls:
+                    msg = f"Plugin '{plugin_name}' not found in registry."
                     logger.warning(
                         "run_executor.plugin_not_found",
                         plugin=plugin_name,
                         run_id=str(run_id),
                     )
-                    errors.append(f"Plugin '{plugin_name}' not found.")
+                    errors.append(f"{plugin_name}: {msg}")
+                    log_lines.append(f"[{plugin_name}] ERROR: {msg}")
                     continue
 
                 try:
@@ -94,8 +122,31 @@ async def execute_run(run_id: uuid.UUID) -> None:
                         "engagement_id": str(run.engagement_id),
                         **{k: v for k, v in params.items() if k not in ("target",)},
                     }
-                    result = await plugin.run(inputs=inputs, run_id=run.id)
+
+                    log_lines.append(f"[{plugin_name}] Starting — target: {target or '(none)'}")
+
+                    result = await plugin.run(
+                        inputs=inputs,
+                        run_id=run.id,
+                        publish=_make_publish(plugin_name),
+                    )
                     results[plugin_name] = result
+
+                    # If the plugin returned an error dict, surface it
+                    if result.get("status") == "error":
+                        err = result.get("error", "unknown error")
+                        errors.append(f"{plugin_name}: {err}")
+                        log_lines.append(f"[{plugin_name}] ERROR: {err}")
+                    elif result.get("status") == "skipped":
+                        reason = result.get("reason", "unknown")
+                        errors.append(f"{plugin_name}: skipped ({reason})")
+                        log_lines.append(f"[{plugin_name}] SKIPPED: {reason}")
+                    else:
+                        duration = result.get("duration_seconds", 0)
+                        log_lines.append(
+                            f"[{plugin_name}] Done in {duration}s"
+                            + (f" — exit {result.get('exit_code')}" if result.get("exit_code") is not None else "")
+                        )
 
                     logger.info(
                         "run_executor.plugin_done",
@@ -111,30 +162,37 @@ async def execute_run(run_id: uuid.UUID) -> None:
                         error=str(exc),
                         run_id=str(run_id),
                     )
-                    errors.append(f"{plugin_name}: {exc}")
-                    results[plugin_name] = {"status": "error", "error": str(exc)}
+                    err_msg = str(exc)
+                    errors.append(f"{plugin_name}: {err_msg}")
+                    log_lines.append(f"[{plugin_name}] EXCEPTION: {err_msg}")
+                    results[plugin_name] = {"status": "error", "error": err_msg}
 
-                # Mark plugin as completed
+                # Mark plugin as completed; flush logs to checkpoint
                 completed = list(run.checkpoint.get("completed_plugins", []))
                 completed.append(plugin_name)
                 run.checkpoint = {
                     **run.checkpoint,
                     "completed_plugins": completed,
                     "current_plugin": None,
+                    "logs": log_lines[-_MAX_LOG_LINES:],
                 }
                 await db.commit()
 
-            # Final status
-            all_ok = all(r.get("status") != "error" for r in results.values())
-            run.status = RunStatus.completed.value if (all_ok and not errors) else RunStatus.failed.value
+            # Final status — skipped counts as an error for overall status
+            all_ok = not errors and all(
+                r.get("status") not in ("error", "skipped")
+                for r in results.values()
+            )
+            run.status = RunStatus.completed.value if all_ok else RunStatus.failed.value
             run.completed_at = datetime.now(timezone.utc)
             run.checkpoint = {
                 **run.checkpoint,
                 "current_plugin": None,
-                "results": results,
+                "results": {k: {ek: ev for ek, ev in v.items() if ek != "parsed"} for k, v in results.items()},
+                "logs": log_lines[-_MAX_LOG_LINES:],
             }
             if errors:
-                run.error_message = "; ".join(errors[:3])
+                run.error_message = "; ".join(errors[:5])
 
             await db.commit()
 
@@ -152,7 +210,7 @@ async def execute_run(run_id: uuid.UUID) -> None:
                 run_id=str(run_id),
                 error=str(exc),
             )
-            # Best-effort: mark the run as failed
+            # Best-effort: mark the run as failed with an error message
             try:
                 async with AsyncSessionLocal() as db2:
                     run2 = await db2.get(EngagementRun, run_id)
@@ -161,7 +219,7 @@ async def execute_run(run_id: uuid.UUID) -> None:
                         RunStatus.running.value,
                     ):
                         run2.status = RunStatus.failed.value
-                        run2.error_message = f"Executor error: {exc}"
+                        run2.error_message = f"Executor crashed: {exc}"
                         run2.completed_at = datetime.now(timezone.utc)
                         await db2.commit()
             except Exception:
