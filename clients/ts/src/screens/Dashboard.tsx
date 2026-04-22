@@ -1,8 +1,9 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Ic } from '../components/Icon'
-import { Avatar, Button, Card, KPI, SevPill, Progress, SectionHeader, StatusPill, EmptyState, Spinner } from '../components/primitives'
-import { getEngagements, getFindings, getRuns } from '../api'
-import type { Engagement, Finding } from '../types'
+import { Avatar, Button, Card, KPI, SevPill, Progress, SectionHeader, StatusPill, EmptyState, Spinner, Select } from '../components/primitives'
+import { getEngagements, getFindings, getRuns, updateEngagementStatus, deleteEngagement, getOrganizations } from '../api'
+import type { Engagement, Finding, Organization } from '../types'
 
 interface Props {
   engagement: Engagement | null
@@ -29,8 +30,14 @@ function countSeverities(findings: Finding[]) {
   return out
 }
 
+const ENGAGEMENT_STATUSES = ['draft', 'active', 'paused', 'completed'] as const
+
 export default function Dashboard({ engagement, onNav }: Props) {
+  const qc = useQueryClient()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
   const { data: engagements = [] } = useQuery({ queryKey: ['engagements'], queryFn: getEngagements })
+  const { data: organizations = [] } = useQuery<Organization[]>({ queryKey: ['organizations'], queryFn: getOrganizations })
   const { data: findings = [], isLoading: findingsLoading } = useQuery({
     queryKey: ['findings', engagement?.id],
     queryFn: () => getFindings(engagement!.id),
@@ -40,6 +47,23 @@ export default function Dashboard({ engagement, onNav }: Props) {
     queryKey: ['runs', engagement?.id],
     queryFn: () => getRuns(engagement!.id),
     enabled: !!engagement?.id,
+  })
+
+  const statusMutation = useMutation({
+    mutationFn: (status: string) => updateEngagementStatus(engagement!.id, status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['engagements'] })
+      qc.invalidateQueries({ queryKey: ['engagement', engagement?.id] })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteEngagement(engagement!.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['engagements'] })
+      setConfirmDelete(false)
+      onNav('new-engagement')
+    },
   })
 
   if (!engagement) return (
@@ -84,9 +108,28 @@ export default function Dashboard({ engagement, onNav }: Props) {
             </span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <Select
+            value={engagement.status}
+            onChange={v => statusMutation.mutate(v)}
+            style={{ height: 30, fontSize: 12 }}
+          >
+            {ENGAGEMENT_STATUSES.map(s => (
+              <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+            ))}
+          </Select>
           <Button variant="secondary" icon={<Ic name="play" size={13} />} onClick={() => onNav('runs')}>Run scan</Button>
           <Button variant="primary" icon={<Ic name="plus" size={14} />} onClick={() => onNav('findings')}>New finding</Button>
+          {confirmDelete ? (
+            <>
+              <Button variant="danger" size="md" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
+                {deleteMutation.isPending ? 'Deleting…' : 'Confirm delete'}
+              </Button>
+              <Button variant="ghost" size="md" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+            </>
+          ) : (
+            <Button variant="danger" size="md" onClick={() => setConfirmDelete(true)}>Delete</Button>
+          )}
         </div>
       </div>
 
@@ -272,7 +315,7 @@ export default function Dashboard({ engagement, onNav }: Props) {
         )}
       </Card>
 
-      {/* All engagements */}
+      {/* All engagements — grouped by organization */}
       <div style={{ marginBottom: 24 }}>
         <SectionHeader
           title="All engagements"
@@ -285,28 +328,57 @@ export default function Dashboard({ engagement, onNav }: Props) {
         />
         {engagements.length === 0 ? (
           <EmptyState icon="folder" title="No engagements" body="Create your first engagement to get started." />
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
-            {engagements.map(e => (
-              <Card key={e.id} padding={0} style={{ overflow: 'hidden' }} hover>
-                <div style={{ padding: '14px 14px 10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                    <span style={{ fontSize: 10.5, color: e.status === 'active' ? 'var(--ok)' : 'var(--text-3)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: 999, background: e.status === 'active' ? 'var(--ok)' : 'var(--text-3)' }} />
-                      {e.status}
-                    </span>
+        ) : (() => {
+          // Build group map: orgId -> { org, engagements[] }
+          const orgMap = new Map<string, { name: string; items: Engagement[] }>()
+          const unassigned: Engagement[] = []
+          for (const e of engagements) {
+            if (e.organization_id) {
+              const org = organizations.find(o => o.id === e.organization_id)
+              const key = e.organization_id
+              if (!orgMap.has(key)) orgMap.set(key, { name: org?.name ?? e.organization_id, items: [] })
+              orgMap.get(key)!.items.push(e)
+            } else {
+              unassigned.push(e)
+            }
+          }
+          const groups: { label: string; items: Engagement[] }[] = [
+            ...Array.from(orgMap.values()).map(g => ({ label: g.name, items: g.items })),
+            ...(unassigned.length > 0 ? [{ label: 'Unassigned', items: unassigned }] : []),
+          ]
+          const EngCard = ({ e }: { e: Engagement }) => (
+            <Card key={e.id} padding={0} style={{ overflow: 'hidden' }} hover onClick={() => onNav(e.id)}>
+              <div style={{ padding: '14px 14px 10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <span style={{ fontSize: 10.5, color: e.status === 'active' ? 'var(--ok)' : 'var(--text-3)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: 999, background: e.status === 'active' ? 'var(--ok)' : 'var(--text-3)' }} />
+                    {e.status}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13.5, fontWeight: 500, marginBottom: 3 }}>{e.title}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginBottom: 10 }}>{e.client_name}</div>
+                <Progress value={e.status === 'completed' ? 1 : e.status === 'active' ? 0.5 : 0.1} color={e.status === 'paused' ? 'var(--text-3)' : 'var(--accent)'} height={3} />
+              </div>
+              <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)', fontSize: 11, color: 'var(--text-3)' }}>
+                {e.end_date ? `Due ${new Date(e.end_date).toLocaleDateString()}` : 'No deadline set'}
+              </div>
+            </Card>
+          )
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {groups.map(g => (
+                <div key={g.label}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+                    {g.label}
                   </div>
-                  <div style={{ fontSize: 13.5, fontWeight: 500, marginBottom: 3 }}>{e.title}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginBottom: 10 }}>{e.client_name}</div>
-                  <Progress value={e.status === 'completed' ? 1 : e.status === 'active' ? 0.5 : 0.1} color={e.status === 'paused' ? 'var(--text-3)' : 'var(--accent)'} height={3} />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+                    {g.items.map(e => <EngCard key={e.id} e={e} />)}
+                  </div>
                 </div>
-                <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)', fontSize: 11, color: 'var(--text-3)' }}>
-                  {e.end_date ? `Due ${new Date(e.end_date).toLocaleDateString()}` : 'No deadline set'}
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

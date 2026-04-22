@@ -2,13 +2,74 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Ic } from '../components/Icon'
 import { Avatar, Button, Card, EmptyState, FieldRow, IconButton, Input, Modal, Select, SevPill, Spinner, StatusPill, Tag, Textarea } from '../components/primitives'
-import { getFindings, createFinding, updateFinding, deleteFinding } from '../api'
+import { getFindings, createFinding, updateFinding, deleteFinding, acceptFinding, rejectFinding } from '../api'
 import type { Engagement, Finding, FindingSeverity, FindingStatus } from '../types'
 
 interface Props { engagement: Engagement | null }
 
 const SEVERITIES: FindingSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
 const STATUSES: FindingStatus[] = ['open', 'triaged', 'accepted-risk', 'resolved', 'false-positive']
+
+function SuggestedBanner({ findings, engagementId }: { findings: Finding[]; engagementId: string }) {
+  const qc = useQueryClient()
+
+  const accept = useMutation({
+    mutationFn: (id: string) => acceptFinding(id, engagementId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['findings', engagementId] }),
+  })
+  const reject = useMutation({
+    mutationFn: (id: string) => rejectFinding(id, engagementId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['findings', engagementId] }),
+  })
+
+  if (findings.length === 0) return null
+
+  return (
+    <div style={{
+      margin: '12px 14px 0',
+      borderRadius: 8,
+      border: '1px solid rgba(255,197,61,0.35)',
+      background: 'rgba(255,197,61,0.07)',
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        padding: '10px 14px',
+        borderBottom: '1px solid rgba(255,197,61,0.2)',
+        display: 'flex', alignItems: 'center', gap: 8,
+      }}>
+        <Ic name="zap" size={14} style={{ color: '#ffc53d' }} />
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#ffc53d' }}>
+          {findings.length} suggested finding{findings.length !== 1 ? 's' : ''} from automated scans — review required
+        </span>
+      </div>
+      {findings.map(f => (
+        <div key={f.id} style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '9px 14px',
+          borderBottom: '1px solid rgba(255,197,61,0.12)',
+        }}>
+          <SevPill sev={f.severity} compact />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.title}</div>
+            {f.target && <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--mono)', marginTop: 2 }}>{f.target}</div>}
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            <Button
+              variant="secondary" size="sm"
+              onClick={() => accept.mutate(f.id)}
+              disabled={accept.isPending || reject.isPending}
+            >Accept</Button>
+            <Button
+              variant="danger" size="sm"
+              onClick={() => reject.mutate(f.id)}
+              disabled={accept.isPending || reject.isPending}
+            >Reject</Button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function FindingDetail({ finding, engagementId, onClose }: { finding: Finding; engagementId: string; onClose: () => void }) {
   const [tab, setTab] = useState<'overview' | 'remediation' | 'edit'>('overview')
@@ -240,7 +301,10 @@ export default function Findings({ engagement }: Props) {
 
   if (!engagement) return <EmptyState icon="bug" title="No engagement selected" />
 
-  const filtered = findings.filter(f => {
+  const suggested = findings.filter(f => f.status === 'suggested')
+  const nonSuggested = findings.filter(f => f.status !== 'suggested')
+
+  const filtered = nonSuggested.filter(f => {
     if (filter === 'open') return f.status === 'open' || f.status === 'triaged'
     if (filter === 'critical') return f.severity === 'critical' || f.severity === 'high'
     if (filter === 'resolved') return f.status === 'resolved'
@@ -250,10 +314,10 @@ export default function Findings({ engagement }: Props) {
   const selected = findings.find(f => f.id === selectedId) || null
 
   const filterTabs = [
-    { id: 'all', label: 'All', count: findings.length },
-    { id: 'open', label: 'Open', count: findings.filter(f => f.status === 'open' || f.status === 'triaged').length },
-    { id: 'critical', label: 'Critical/High', count: findings.filter(f => f.severity === 'critical' || f.severity === 'high').length },
-    { id: 'resolved', label: 'Resolved', count: findings.filter(f => f.status === 'resolved').length },
+    { id: 'all', label: 'All', count: nonSuggested.length },
+    { id: 'open', label: 'Open', count: nonSuggested.filter(f => f.status === 'open' || f.status === 'triaged').length },
+    { id: 'critical', label: 'Critical/High', count: nonSuggested.filter(f => f.severity === 'critical' || f.severity === 'high').length },
+    { id: 'resolved', label: 'Resolved', count: nonSuggested.filter(f => f.status === 'resolved').length },
   ]
 
   return (
@@ -296,6 +360,9 @@ export default function Findings({ engagement }: Props) {
             ))}
           </div>
         </div>
+
+        {/* Suggested findings banner */}
+        <SuggestedBanner findings={suggested} engagementId={engagement.id} />
 
         {/* List */}
         <div style={{ flex: 1, overflow: 'auto' }}>
