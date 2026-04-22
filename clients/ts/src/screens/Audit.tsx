@@ -87,7 +87,7 @@ export default function Audit({ engagement }: Props) {
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ['audit', engagement?.id],
-    queryFn: () => getAudit(engagement?.id),
+    queryFn: () => getAudit(),
     staleTime: 10_000,
   })
 

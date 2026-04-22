@@ -62,7 +62,7 @@ function AppShell() {
     return 'dashboard'
   }
 
-  const handleNav = (screen: Screen) => {
+  const handleNav = (screen: string) => {
     navigate(`/${screen === 'dashboard' ? '' : screen}`)
   }
 
@@ -81,7 +81,7 @@ function AppShell() {
       selectedEngagement={engagement}
       onSelectEngagement={e => { setEngagementId(e.id); localStorage.setItem('drift.engagementId', e.id) }}
       screen={screenFromPath()}
-      onNav={(id) => handleNav(id as Screen)}
+      onNav={handleNav}
       railOpen={railOpen}
       onToggleRail={() => setRailOpen(r => !r)}
       onSignOut={handleSignOut}
