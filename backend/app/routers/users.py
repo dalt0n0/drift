@@ -23,6 +23,11 @@ async def list_users(current_user: CurrentUser, db: DB):
     return result.scalars().all()
 
 
+@router.get("/me", response_model=UserResponse)
+async def get_me(current_user: CurrentUser):
+    return current_user
+
+
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(user_id: uuid.UUID, current_user: CurrentUser, db: DB):
     if str(current_user.id) != str(user_id):
