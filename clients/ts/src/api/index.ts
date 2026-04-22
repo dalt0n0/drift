@@ -72,9 +72,9 @@ export const getRuns = (engagementId: string) =>
 export const getRun = (engagementId: string, runId: string) =>
   api.get<EngagementRun>(`/engagements/${engagementId}/runs/${runId}`).then(r => r.data)
 
-export const createRun = (engagementId: string, plugin: string, params: Record<string, unknown>) =>
+export const createRun = (engagementId: string, plugins: string | string[], params: Record<string, unknown>) =>
   api.post<EngagementRun>(`/engagements/${engagementId}/runs`, {
-    plugin_names: [plugin],
+    plugin_names: Array.isArray(plugins) ? plugins : [plugins],
     safe_mode: false,
     params,
   }).then(r => r.data)

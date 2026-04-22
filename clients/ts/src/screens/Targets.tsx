@@ -23,11 +23,14 @@ function ScanTargetModal({ open, onClose, target, engagementId }: {
   open: boolean; onClose: () => void; target: string; engagementId: string
 }) {
   const qc = useQueryClient()
-  const [plugin, setPlugin] = useState(PLUGINS[0].id)
+  const [selected, setSelected] = useState<string[]>([PLUGINS[0].id])
   const [error, setError] = useState('')
 
+  const toggle = (id: string) =>
+    setSelected(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id])
+
   const run = useMutation({
-    mutationFn: () => createRun(engagementId, plugin, { target }),
+    mutationFn: () => createRun(engagementId, selected, { target }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['runs', engagementId] })
       setError('')
@@ -40,16 +43,32 @@ function ScanTargetModal({ open, onClose, target, engagementId }: {
   })
 
   return (
-    <Modal open={open} onClose={onClose} title="Scan target" width={420}>
+    <Modal open={open} onClose={onClose} title="Scan target" width={440}>
       <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ padding: '8px 12px', background: 'var(--bg-2)', borderRadius: 6, fontFamily: 'var(--mono)', fontSize: 13 }}>
           {target}
         </div>
-        <FieldRow label="Plugin">
-          <Select value={plugin} onChange={setPlugin}>
-            {PLUGINS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-          </Select>
-        </FieldRow>
+        <div>
+          <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 8 }}>Select tools to run</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 260, overflowY: 'auto' }}>
+            {PLUGINS.map(p => (
+              <label key={p.id} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px',
+                borderRadius: 6, cursor: 'pointer',
+                background: selected.includes(p.id) ? 'var(--accent-bg)' : 'var(--bg-2)',
+                border: `1px solid ${selected.includes(p.id) ? 'var(--accent-line)' : 'var(--line)'}`,
+              }}>
+                <input
+                  type="checkbox"
+                  checked={selected.includes(p.id)}
+                  onChange={() => toggle(p.id)}
+                  style={{ accentColor: 'var(--accent)', width: 14, height: 14 }}
+                />
+                <span style={{ fontSize: 12.5 }}>{p.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
         {error && (
           <div style={{ padding: '8px 12px', borderRadius: 6, background: 'rgba(255,74,94,0.10)', border: '1px solid rgba(255,74,94,0.25)', color: 'var(--crit)', fontSize: 12 }}>
             {error}
@@ -57,8 +76,8 @@ function ScanTargetModal({ open, onClose, target, engagementId }: {
         )}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" icon={<Ic name="play" size={13} />} onClick={() => run.mutate()} disabled={run.isPending}>
-            {run.isPending ? 'Launching…' : 'Launch scan'}
+          <Button variant="primary" icon={<Ic name="play" size={13} />} onClick={() => run.mutate()} disabled={run.isPending || selected.length === 0}>
+            {run.isPending ? 'Launching…' : `Launch ${selected.length} scan${selected.length !== 1 ? 's' : ''}`}
           </Button>
         </div>
       </div>
@@ -135,8 +154,199 @@ function AddScopeModal({ open, onClose, engagementId }: { open: boolean; onClose
   )
 }
 
+const PLAYBOOKS = [
+  {
+    id: 'full_recon',
+    name: 'Full Recon',
+    description: 'Subdomain enumeration, HTTP probing, and port scanning',
+    plugins: ['subfinder', 'httpx', 'nmap'],
+  },
+  {
+    id: 'web_audit',
+    name: 'Web Audit',
+    description: 'Comprehensive web vulnerability assessment',
+    plugins: ['httpx', 'nuclei', 'nikto', 'ffuf'],
+  },
+  {
+    id: 'network_scan',
+    name: 'Network Scan',
+    description: 'Port scanning, service detection, and TLS analysis',
+    plugins: ['nmap', 'sslyze'],
+  },
+  {
+    id: 'quick_check',
+    name: 'Quick Check',
+    description: 'Fast HTTP probe + nuclei templates',
+    plugins: ['httpx', 'nuclei'],
+  },
+]
+
+function PlaybookView({ engagement, scope }: { engagement: Engagement; scope: ScopeItem[] }) {
+  const qc = useQueryClient()
+  const [customPlugins, setCustomPlugins] = useState<string[]>([])
+  const [customTarget, setCustomTarget] = useState('')
+  const [launchingId, setLaunchingId] = useState<string | null>(null)
+  const [customError, setCustomError] = useState('')
+  const [launchTarget, setLaunchTarget] = useState('')
+
+  const toggleCustom = (id: string) =>
+    setCustomPlugins(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id])
+
+  const runPlaybook = useMutation({
+    mutationFn: ({ plugins, target }: { plugins: string[]; target: string }) =>
+      createRun(engagement.id, plugins, { target }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['runs', engagement.id] })
+      setLaunchingId(null)
+      setCustomError('')
+    },
+    onError: (err: unknown) => {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setCustomError(typeof detail === 'string' ? detail : 'Failed to launch.')
+      setLaunchingId(null)
+    },
+  })
+
+  const scopeTargets = scope.map(s => s.value)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Preset playbooks */}
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Preset playbooks</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 12 }}>
+          {PLAYBOOKS.map(pb => (
+            <Card key={pb.id} padding={16}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 3 }}>{pb.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{pb.description}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
+                {pb.plugins.map(p => (
+                  <span key={p} style={{
+                    padding: '2px 7px', borderRadius: 4, fontSize: 11, fontFamily: 'var(--mono)',
+                    background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--text-2)',
+                  }}>{p}</span>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <select
+                  value={launchTarget}
+                  onChange={e => setLaunchTarget(e.target.value)}
+                  style={{ flex: 1, fontSize: 12, padding: '5px 8px', borderRadius: 5, background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--text)' }}
+                >
+                  <option value="">Select target…</option>
+                  {scopeTargets.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <Button
+                  variant="primary" size="sm"
+                  icon={<Ic name="play" size={11} />}
+                  disabled={!launchTarget || runPlaybook.isPending}
+                  onClick={() => {
+                    setLaunchingId(pb.id)
+                    runPlaybook.mutate({ plugins: pb.plugins, target: launchTarget })
+                  }}
+                >
+                  {runPlaybook.isPending && launchingId === pb.id ? 'Launching…' : 'Run'}
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Custom playbook builder */}
+      <Card padding={16}>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Custom playbook</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 8 }}>Select tools (run in order)</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {PLUGINS.map((p) => {
+                const idx = customPlugins.indexOf(p.id)
+                const checked = idx !== -1
+                return (
+                  <label key={p.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px',
+                    borderRadius: 6, cursor: 'pointer',
+                    background: checked ? 'var(--accent-bg)' : 'var(--bg-2)',
+                    border: `1px solid ${checked ? 'var(--accent-line)' : 'var(--line)'}`,
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleCustom(p.id)}
+                      style={{ accentColor: 'var(--accent)', width: 14, height: 14 }}
+                    />
+                    {checked && (
+                      <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--accent)', minWidth: 14 }}>
+                        {idx + 1}
+                      </span>
+                    )}
+                    <span style={{ fontSize: 12.5 }}>{p.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 8 }}>Target</div>
+              <select
+                value={customTarget}
+                onChange={e => setCustomTarget(e.target.value)}
+                style={{ width: '100%', fontSize: 12, padding: '7px 10px', borderRadius: 6, background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--text)' }}
+              >
+                <option value="">Select from scope…</option>
+                {scopeTargets.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <div style={{ fontSize: 11.5, color: 'var(--text-4)', marginTop: 5 }}>or enter manually:</div>
+              <input
+                value={customTarget}
+                onChange={e => setCustomTarget(e.target.value)}
+                placeholder="example.com"
+                style={{ width: '100%', marginTop: 4, padding: '7px 10px', borderRadius: 6, fontSize: 12, background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--text)', boxSizing: 'border-box' }}
+              />
+            </div>
+            {customPlugins.length > 0 && (
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 6 }}>Run order:</div>
+                {customPlugins.map((id, i) => (
+                  <div key={id} style={{ fontSize: 12, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                    <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text-4)', minWidth: 14 }}>{i + 1}.</span>
+                    {PLUGINS.find(p => p.id === id)?.label || id}
+                  </div>
+                ))}
+              </div>
+            )}
+            {customError && (
+              <div style={{ padding: '7px 10px', borderRadius: 6, background: 'rgba(255,74,94,0.08)', border: '1px solid rgba(255,74,94,0.3)', color: '#ff8a99', fontSize: 12 }}>
+                {customError}
+              </div>
+            )}
+            <Button
+              variant="primary"
+              icon={<Ic name="play" size={13} />}
+              disabled={customPlugins.length === 0 || !customTarget || runPlaybook.isPending}
+              onClick={() => {
+                setLaunchingId('custom')
+                runPlaybook.mutate({ plugins: customPlugins, target: customTarget })
+              }}
+            >
+              {runPlaybook.isPending && launchingId === 'custom' ? 'Launching…' : `Run ${customPlugins.length} tool${customPlugins.length !== 1 ? 's' : ''}`}
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
 export default function Targets({ engagement }: Props) {
   const qc = useQueryClient()
+  const [activeTab, setActiveTab] = useState<'scope' | 'playbook'>('scope')
   const [view, setView] = useState<'table' | 'grid'>('table')
   const [addOpen, setAddOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -175,75 +385,97 @@ export default function Targets({ engagement }: Props) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <div style={{ display: 'flex', background: 'var(--bg-2)', borderRadius: 6, padding: 2, border: '1px solid var(--line)' }}>
-            {(['table', 'grid'] as const).map(v => (
-              <button key={v} onClick={() => setView(v)} style={{
-                padding: '4px 9px', fontSize: 11.5, borderRadius: 4,
-                background: view === v ? 'var(--bg-3)' : 'transparent',
-                color: view === v ? 'var(--text)' : 'var(--text-3)',
-                textTransform: 'capitalize',
-              }}>{v}</button>
-            ))}
-          </div>
-          <Button variant="primary" size="md" icon={<Ic name="plus" size={14} />} onClick={() => setAddOpen(true)}>
-            Add target
-          </Button>
+          {activeTab === 'scope' && (
+            <>
+              <div style={{ display: 'flex', background: 'var(--bg-2)', borderRadius: 6, padding: 2, border: '1px solid var(--line)' }}>
+                {(['table', 'grid'] as const).map(v => (
+                  <button key={v} onClick={() => setView(v)} style={{
+                    padding: '4px 9px', fontSize: 11.5, borderRadius: 4,
+                    background: view === v ? 'var(--bg-3)' : 'transparent',
+                    color: view === v ? 'var(--text)' : 'var(--text-3)',
+                    textTransform: 'capitalize',
+                  }}>{v}</button>
+                ))}
+              </div>
+              <Button variant="primary" size="md" icon={<Ic name="plus" size={14} />} onClick={() => setAddOpen(true)}>
+                Add target
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Scope editor / stats */}
-      <Card style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Scope overview</div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          {SCOPE_TYPES.map(t => (
-            <button key={t} onClick={() => setTypeFilter(typeFilter === t ? 'all' : t)} style={{
-              padding: '6px 14px', borderRadius: 8,
-              background: typeFilter === t ? `${typeColors[t]}18` : 'var(--bg-2)',
-              border: `1px solid ${typeFilter === t ? typeColors[t] + '44' : 'var(--line)'}`,
-              color: typeFilter === t ? typeColors[t] : 'var(--text-2)',
-              fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 7,
-            }}>
-              <span style={{ width: 7, height: 7, borderRadius: 999, background: typeColors[t] }} />
-              {t} <span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{typeCounts[t] || 0}</span>
-            </button>
-          ))}
-        </div>
-      </Card>
-
-      {/* Search */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', height: 34, background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 6, marginBottom: 12 }}>
-        <Ic name="search" size={13} style={{ color: 'var(--text-3)' }} />
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search scope…"
-          style={{ flex: 1, fontSize: 13, background: 'none', color: 'var(--text)' }}
-        />
+      {/* Tab bar */}
+      <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--line)', marginBottom: 18 }}>
+        {(['scope', 'playbook'] as const).map(t => (
+          <button key={t} onClick={() => setActiveTab(t)} style={{
+            padding: '7px 14px', fontSize: 13,
+            fontWeight: activeTab === t ? 600 : 400,
+            color: activeTab === t ? 'var(--text)' : 'var(--text-3)',
+            borderBottom: activeTab === t ? '2px solid var(--accent)' : '2px solid transparent',
+            marginBottom: -1, textTransform: 'capitalize',
+          }}>{t === 'playbook' ? 'Playbook' : 'Scope'}</button>
+        ))}
       </div>
 
-      {/* Content */}
-      {isLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spinner /></div>
-      ) : filtered.length === 0 ? (
-        <EmptyState icon="target" title="No scope items" body="Add hosts, IPs, CIDRs, URLs, or wildcards to define the engagement scope." action={
-          <Button variant="primary" icon={<Ic name="plus" size={14} />} onClick={() => setAddOpen(true)}>Add first target</Button>
-        } />
-      ) : view === 'table' ? (
-        <Card padding={0}>
-          {/* Table header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr 80px 1fr 80px 40px', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--line)', fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            <span>Type</span><span>Value</span><span>Added</span><span>Notes</span><span /><span />
-          </div>
-          {filtered.map(item => (
-            <ScopeRow key={item.id} item={item} onDelete={() => remove.mutate(item.id)} onScan={() => setScanTarget(item.value)} />
-          ))}
-        </Card>
+      {activeTab === 'playbook' ? (
+        <PlaybookView engagement={engagement} scope={scope} />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-          {filtered.map(item => (
-            <ScopeCard key={item.id} item={item} onDelete={() => remove.mutate(item.id)} onScan={() => setScanTarget(item.value)} />
-          ))}
-        </div>
+        <>
+          {/* Scope editor / stats */}
+          <Card style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Scope overview</div>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {SCOPE_TYPES.map(t => (
+                <button key={t} onClick={() => setTypeFilter(typeFilter === t ? 'all' : t)} style={{
+                  padding: '6px 14px', borderRadius: 8,
+                  background: typeFilter === t ? `${typeColors[t]}18` : 'var(--bg-2)',
+                  border: `1px solid ${typeFilter === t ? typeColors[t] + '44' : 'var(--line)'}`,
+                  color: typeFilter === t ? typeColors[t] : 'var(--text-2)',
+                  fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 7,
+                }}>
+                  <span style={{ width: 7, height: 7, borderRadius: 999, background: typeColors[t] }} />
+                  {t} <span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{typeCounts[t] || 0}</span>
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          {/* Search */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', height: 34, background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 6, marginBottom: 12 }}>
+            <Ic name="search" size={13} style={{ color: 'var(--text-3)' }} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search scope…"
+              style={{ flex: 1, fontSize: 13, background: 'none', color: 'var(--text)' }}
+            />
+          </div>
+
+          {/* Content */}
+          {isLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spinner /></div>
+          ) : filtered.length === 0 ? (
+            <EmptyState icon="target" title="No scope items" body="Add hosts, IPs, CIDRs, URLs, or wildcards to define the engagement scope." action={
+              <Button variant="primary" icon={<Ic name="plus" size={14} />} onClick={() => setAddOpen(true)}>Add first target</Button>
+            } />
+          ) : view === 'table' ? (
+            <Card padding={0}>
+              <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr 80px 1fr 80px 40px', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--line)', fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <span>Type</span><span>Value</span><span>Added</span><span>Notes</span><span /><span />
+              </div>
+              {filtered.map(item => (
+                <ScopeRow key={item.id} item={item} onDelete={() => remove.mutate(item.id)} onScan={() => setScanTarget(item.value)} />
+              ))}
+            </Card>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+              {filtered.map(item => (
+                <ScopeCard key={item.id} item={item} onDelete={() => remove.mutate(item.id)} onScan={() => setScanTarget(item.value)} />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <AddScopeModal open={addOpen} onClose={() => setAddOpen(false)} engagementId={engagement.id} />

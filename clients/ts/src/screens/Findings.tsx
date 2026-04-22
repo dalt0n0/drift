@@ -85,11 +85,20 @@ function SuggestedBanner({ findings, engagementId, onSelect }: {
 
 function FindingDetail({ finding, engagementId, onClose }: { finding: Finding; engagementId: string; onClose: () => void }) {
   const [tab, setTab] = useState<'overview' | 'remediation' | 'edit'>('overview')
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const qc = useQueryClient()
 
   const statusUpdate = useMutation({
     mutationFn: (status: FindingStatus) => updateFinding(engagementId, finding.id, { status }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['findings', engagementId] }),
+  })
+
+  const del = useMutation({
+    mutationFn: () => deleteFinding(engagementId, finding.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['findings', engagementId] })
+      onClose()
+    },
   })
 
   const tabs = ['overview', 'remediation', 'edit'] as const
@@ -115,7 +124,19 @@ function FindingDetail({ finding, engagementId, onClose }: { finding: Finding; e
             {finding.cwe && <span style={{ fontFamily: 'var(--mono)' }}>{finding.cwe}</span>}
           </div>
         </div>
-        <IconButton icon={<Ic name="close" size={14} />} onClick={onClose} />
+        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+          {confirmDelete ? (
+            <>
+              <Button variant="danger" size="sm" onClick={() => del.mutate()} disabled={del.isPending}>
+                {del.isPending ? 'Deleting…' : 'Confirm delete'}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+            </>
+          ) : (
+            <IconButton icon={<Ic name="trash" size={13} />} onClick={() => setConfirmDelete(true)} style={{ color: 'var(--crit)' }} />
+          )}
+          <IconButton icon={<Ic name="close" size={14} />} onClick={onClose} />
+        </div>
       </div>
 
       {/* Tabs */}

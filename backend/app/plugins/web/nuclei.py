@@ -28,10 +28,9 @@ class NucleiPlugin(BasePlugin):
         severities = inputs.get("severities", "low,medium,high,critical")
         cmd = [
             "nuclei",
-            "-json",
+            "-jsonl",
             "-silent",
             "-severity", severities,
-            "-update-templates",
         ]
         for target in targets:
             cmd.extend(["-u", target])

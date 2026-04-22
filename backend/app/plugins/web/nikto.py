@@ -39,12 +39,19 @@ class NiktoPlugin(BasePlugin):
 
         # Parse nikto text output lines like:
         # + /path: Description of finding (OSVDB-12345)
+        _SKIP_PATH = re.compile(
+            r'^(\d|Server|Retrieved|No CGI|Allowed HTTP|Target IP|Target Host|Target Port|End Time|Start Time)',
+            re.IGNORECASE,
+        )
+        _SKIP_MSG = re.compile(
+            r'(\d+\s+errors?\s+and\s+\d+\s+items?\s+reported|\d+\s+host.{0,20}test|\d{2}:\d{2}:\d{2})',
+            re.IGNORECASE,
+        )
         pattern = re.compile(r"^\+\s+(.+?):\s+(.+)$", re.MULTILINE)
         for m in pattern.finditer(raw):
             path = m.group(1).strip()
             msg = m.group(2).strip()
-            # Skip header/info lines
-            if any(skip in path for skip in ["Server", "Retrieved", "No CGI", "Allowed HTTP"]):
+            if _SKIP_PATH.match(path) or _SKIP_MSG.search(msg) or _SKIP_MSG.search(path):
                 continue
             osvdb_match = re.search(r"OSVDB-(\d+)", msg)
             findings.append({

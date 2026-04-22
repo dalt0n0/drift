@@ -1,6 +1,7 @@
 """Run executor: executes an EngagementRun's plugin pipeline as a background task."""
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -14,6 +15,18 @@ logger = structlog.get_logger(__name__)
 
 # Maximum log lines kept in checkpoint (prevents unbounded growth)
 _MAX_LOG_LINES = 2000
+
+_NOISE_RE = re.compile(
+    r"(\d+\s+errors?\s+and\s+\d+\s+items?\s+reported"
+    r"|\d+\s+host.{0,20}test"
+    r"|\d{2}:\d{2}:\d{2}"
+    r"|\d{4}-\d{2}-\d{2}"
+    r"|\bend\s+time\b|\bstart\s+time\b"
+    r"|\btarget\s+(ip|hostname|port)\b"
+    r"|\bnmap\s+scan\s+report\b"
+    r"|\bnikto\s+v\b)",
+    re.IGNORECASE,
+)
 
 
 async def _create_suggested_findings(
@@ -35,7 +48,9 @@ async def _create_suggested_findings(
         if not isinstance(item, dict):
             continue
         msg = item.get("msg", "") or item.get("title", "") or item.get("description", "")
-        if not msg:
+        if not msg or len(msg) < 15:
+            continue
+        if _NOISE_RE.search(msg):
             continue
 
         # Determine severity

@@ -64,6 +64,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ldap-utils \
     onesixtyone \
     enum4linux \
+    seclists \
     python3-impacket \
     # CGO build deps (gopacket/pcap required by naabu)
     libpcap-dev \

@@ -28,22 +28,21 @@ class NmapPlugin(BasePlugin):
         targets = inputs.get("targets", [])
         cmd = [
             "nmap",
-            "-sV", "-sC",  # Service version + default scripts
-            "-oX", "-",  # XML to stdout
-            "--open",  # Only open ports
-            "-T4",  # Aggressive timing
+            "-sT",          # TCP connect scan — no raw socket needed inside container
+            "-sV",          # Service version detection
+            "-oX", "-",     # XML to stdout
+            "--open",       # Only open ports
+            "-T4",          # Aggressive timing
             "--max-retries", "2",
         ]
 
         # Optional port specification
         if inputs.get("ports"):
             cmd.extend(["-p", inputs["ports"]])
-        else:
-            cmd.extend(["-p-"])  # All ports
-
-        # Optional: top N ports instead
-        if inputs.get("top_ports"):
+        elif inputs.get("top_ports"):
             cmd.extend(["--top-ports", str(inputs["top_ports"])])
+        else:
+            cmd.extend(["--top-ports", "1000"])  # default: top 1000 (faster than -p-)
 
         cmd.extend(targets)
         return cmd
