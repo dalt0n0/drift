@@ -24,7 +24,6 @@ Drift includes built-in scope enforcement:
 - Hard-block on RFC-reserved IP ranges (10.x, 172.16.x, 192.168.x, 127.x, etc.) unless explicitly in scope
 - Hard-block on .gov and .mil TLDs
 - Hard-block on cloud metadata endpoints (169.254.169.254, etc.)
-- Typed confirmation "I HAVE AUTHORIZATION" required before any active scan
 - All scan activity logged with actor identity, timestamp, and scope
 
 **The presence of these controls does not substitute for your legal responsibility to obtain authorization.**
