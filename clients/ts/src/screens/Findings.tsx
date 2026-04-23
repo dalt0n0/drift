@@ -245,13 +245,18 @@ function EditFindingForm({ finding, engagementId }: { finding: Finding; engageme
   const [severity, setSeverity] = useState<FindingSeverity>(finding.severity)
   const [status, setStatus] = useState<FindingStatus>(finding.status)
   const [target, setTarget] = useState(finding.affected_target || '')
-  const [category, setCategory] = useState(finding.category || '')
-  const [cwe, setCwe] = useState(finding.cwe || '')
-  const [remediation, setRemediation] = useState(finding.remediation || '')
+  const [notes, setNotes] = useState(finding.notes || '')
   const [saved, setSaved] = useState(false)
 
   const update = useMutation({
-    mutationFn: () => updateFinding(engagementId, finding.id, { title, description, severity, status, affected_target: target, notes: remediation }),
+    mutationFn: () => updateFinding(engagementId, finding.id, {
+      title: title || undefined,
+      description,
+      severity,
+      status,
+      affected_target: target || undefined,
+      notes: notes || undefined,
+    }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['findings', engagementId] }); setSaved(true); setTimeout(() => setSaved(false), 2000) },
   })
 
@@ -271,11 +276,9 @@ function EditFindingForm({ finding, engagementId }: { finding: Finding; engageme
           </Select>
         </FieldRow>
         <FieldRow label="Target"><Input value={target} onChange={setTarget} placeholder="api.example.com" /></FieldRow>
-        <FieldRow label="Category"><Input value={category} onChange={setCategory} placeholder="Injection" /></FieldRow>
-        <FieldRow label="CWE"><Input value={cwe} onChange={setCwe} placeholder="CWE-89" /></FieldRow>
       </div>
-      <FieldRow label="Remediation"><Textarea value={remediation} onChange={setRemediation} rows={4} /></FieldRow>
-      <Button variant="primary" onClick={() => update.mutate()} disabled={update.isPending}>
+      <FieldRow label="Notes"><Textarea value={notes} onChange={setNotes} rows={4} /></FieldRow>
+      <Button variant="primary" onClick={() => update.mutate()} disabled={update.isPending || !title.trim()}>
         {saved ? '✓ Saved' : update.isPending ? 'Saving…' : 'Save changes'}
       </Button>
     </div>

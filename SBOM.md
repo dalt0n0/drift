@@ -7,12 +7,12 @@ Drift generates CycloneDX 1.5 and SPDX 2.3 SBOMs for:
 2. Each Docker image (via Syft)
 3. Per-engagement run metadata (tool versions used)
 
-**Phase 6 deliverable** — this document describes the planned implementation.
+**Phase 6 deliverable** - this document describes the planned implementation.
 
 ## Endpoints
 
-- `GET /api/sbom` — returns current application SBOM (CycloneDX JSON)
-- `GET /api/sbom/image` — returns Docker image SBOM
+- `GET /api/sbom` - returns current application SBOM (CycloneDX JSON)
+- `GET /api/sbom/image` - returns Docker image SBOM
 
 ## Generation
 

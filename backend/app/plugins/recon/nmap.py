@@ -27,9 +27,8 @@ class NmapPlugin(BasePlugin):
     def build_command(self, inputs: dict) -> list[str]:
         targets = inputs.get("targets", [])
         cmd = [
-            "nmap",
-            "--unprivileged", # Override Kali wrapper's --privileged; use OS TCP stack only
-            "-sT",          # TCP connect scan — no raw socket needed inside container
+            "/usr/lib/nmap/nmap",   # bypass /usr/bin/nmap Kali wrapper (prepends --privileged)
+            "-sT",          # TCP connect scan — no raw socket needed
             "-sV",          # Service version detection
             "-oX", "-",     # XML to stdout
             "--open",       # Only open ports

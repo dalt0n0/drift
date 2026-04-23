@@ -6,8 +6,8 @@
 
 You may only use Drift against systems and networks for which you have **explicit written authorization** from the system owner. Unauthorized use may violate:
 
-- The Computer Fraud and Abuse Act (CFAA) — United States
-- The Computer Misuse Act — United Kingdom
+- The Computer Fraud and Abuse Act (CFAA) - United States
+- The Computer Misuse Act - United Kingdom
 - Equivalent laws in your jurisdiction
 
 ## No Warranty

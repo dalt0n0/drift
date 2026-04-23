@@ -23,7 +23,6 @@ Open-source, web-based automated penetration testing platform. Drift wraps best-
 - [API](#api)
 - [WebSocket](#websocket)
 - [Production Hardening](#production-hardening)
-- [Project Phases](#project-phases)
 
 ---
 
@@ -386,13 +385,13 @@ Drift ships 33 built-in plugins across four categories. Cloud modules require `E
 | `ldapsearch` | ldapsearch | LDAP directory enumeration |
 | `onesixtyone` | onesixtyone | SNMP community string brute-forcer |
 
-### Cloud Security (opt-in via `ENABLE_CLOUD_MODULES=true`)
+### Cloud Security (PLANNED - opt-in via `ENABLE_CLOUD_MODULES=true`)
 
 | Plugin | Tool | Description |
 |--------|------|-------------|
-| `prowler` | Prowler 4.x | AWS/Azure/GCP security posture assessment |
-| `scoutsuite` | ScoutSuite | Multi-cloud security auditing |
-| `cloudsploit` | CloudSploit | Cloud infrastructure misconfiguration scanner |
+| `prowler` | Prowler 4.x | AWS/Azure/GCP security posture assessment *(PLANNED)* |
+| `scoutsuite` | ScoutSuite | Multi-cloud security auditing *(PLANNED)* |
+| `cloudsploit` | CloudSploit | Cloud infrastructure misconfiguration scanner *(PLANNED)* |
 
 ---
 
@@ -553,20 +552,6 @@ Security controls active in all environments:
 - `X-Frame-Options: DENY`, CSP, `X-Content-Type-Options` on all responses
 - Rate limiting via slowapi (100 req/min general, 10 req/min auth)
 - Scope hard-blocks enforced before any tool execution
-
----
-
-## Project Phases
-
-| Phase | Status | Scope |
-|-------|--------|-------|
-| **1** | Done | Scaffold, auth, RBAC, hash-chained audit log, docker-compose |
-| **2** | Done | Engagement + scope models, plugin manifest, orchestrator core, WebSocket |
-| **3** | Done | Passive + active recon plugins (9 passive, 4 active) |
-| **4** | Done | Web + network + cloud testing plugins, evidence screenshots |
-| **5** | Planned | CVE correlation (NVD/OSV/CISA KEV/EPSS), CVSS/EPSS, PDF/HTML/SARIF reporting |
-| **6** | Planned | SBOM (Syft/Grype), cosign signing, SLSA provenance, Helm chart |
-| **7** | Planned | E2E tests vs Juice Shop + DVWA, CHANGELOG.md, v0.1.0 release |
 
 ---
 

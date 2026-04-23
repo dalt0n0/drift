@@ -14,6 +14,7 @@ _WORDLIST_CANDIDATES = [
     "/usr/share/wordlists/seclists/Discovery/Web-Content/common.txt",
     "/usr/share/dirb/wordlists/common.txt",
     "/usr/share/wordlists/dirb/common.txt",
+    "/opt/drift/wordlists/minimal.txt",  # baked into tools container as fallback
 ]
 
 # Minimal built-in wordlist used when no system wordlist is available

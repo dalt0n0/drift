@@ -5,7 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/); version
 
 ---
 
-## [0.1.0] — 2026-04-21
+## [0.1.0] - 2026-04-21
 
 ### Added
 
@@ -41,16 +41,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/); version
 #### Deployment
 - Docker Compose stack: API, Celery worker, tools container (Kali-based), PostgreSQL, Redis, MinIO
 - Helm chart (`deploy/helm/drift/`) with HPA (autoscaling/v2), PVC audit retention, CronJobs for audit integrity check and Nuclei template updates, cert-manager Ingress TLS, optional external secret support
-- `scripts/setup.sh`: full out-of-box setup — auto-detects OS, installs Docker CE + Compose v2, generates secrets, runs migrations, creates admin user
+- `scripts/setup.sh`: full out-of-box setup - auto-detects OS, installs Docker CE + Compose v2, generates secrets, runs migrations, creates admin user
 - `scripts/update.sh`: pull latest images, migrate, restart
 
 #### Documentation
-- `README.md` — quickstart, env reference, API overview
-- `ARCHITECTURE.md` — component diagram, data flow, security boundaries
-- `THREAT_MODEL.md` — STRIDE analysis, mitigations, trust boundaries
-- `SOC2_CONTROLS.md` — control mapping for CC6/CC7/CC8
-- `SECURITY.md` — responsible disclosure policy
-- `SBOM.md` — supply-chain transparency note
+- `README.md` - quickstart, env reference, API overview
+- `ARCHITECTURE.md` - component diagram, data flow, security boundaries
+- `THREAT_MODEL.md` - STRIDE analysis, mitigations, trust boundaries
+- `SOC2_CONTROLS.md` - control mapping for CC6/CC7/CC8
+- `SECURITY.md` - responsible disclosure policy
+- `SBOM.md` - supply-chain transparency note
 - `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `DISCLAIMER.md`
 
 ### Security
