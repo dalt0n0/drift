@@ -41,7 +41,6 @@ class FfufPlugin(BasePlugin):
             "-json",           # JSONL to stdout — no temp file, works in container
             "-noninteractive",
             "-fc", filter_codes,
-            "-v",
         ]
         if extensions:
             cmd.extend(["-e", extensions])
