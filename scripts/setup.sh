@@ -134,16 +134,48 @@ install_docker_compose_standalone() {
 }
 
 add_user_to_docker_group() {
-    # Add invoking user (not root) to the docker group
     local invoking_user="${SUDO_USER:-${USER:-}}"
     if [[ -n "${invoking_user}" && "${invoking_user}" != "root" ]]; then
         if ! groups "${invoking_user}" 2>/dev/null | grep -q docker; then
-            usermod -aG docker "${invoking_user}"
-            warn "Added '${invoking_user}' to the docker group."
-            warn "You may need to log out and back in for this to take effect,"
-            warn "or run: newgrp docker"
+            if [[ "${EUID}" -eq 0 ]]; then
+                usermod -aG docker "${invoking_user}"
+                warn "Added '${invoking_user}' to the docker group."
+                warn "You may need to log out and back in for this to take effect,"
+                warn "or run: newgrp docker"
+            else
+                warn "User '${invoking_user}' not in docker group. Run:"
+                warn "  sudo usermod -aG docker ${invoking_user} && newgrp docker"
+            fi
+        else
+            info "User '${invoking_user}' already in docker group."
         fi
     fi
+}
+
+configure_docker_gid() {
+    local sock=/var/run/docker.sock
+    if [[ ! -S "${sock}" ]]; then
+        warn "Docker socket not found at ${sock} — skipping DOCKER_GID detection."
+        return
+    fi
+    local gid
+    gid=$(stat -c '%g' "${sock}" 2>/dev/null || stat -f '%g' "${sock}" 2>/dev/null || echo "")
+    if [[ -z "${gid}" ]]; then
+        warn "Could not detect docker socket GID — DOCKER_GID will use default (999)."
+        return
+    fi
+    info "Docker socket GID: ${gid}"
+    local env_file="${ROOT_DIR}/.env"
+    if [[ -f "${env_file}" ]]; then
+        if grep -q '^DOCKER_GID=' "${env_file}"; then
+            sed -i "s/^DOCKER_GID=.*/DOCKER_GID=${gid}/" "${env_file}"
+            info "Updated DOCKER_GID=${gid} in .env"
+        else
+            echo "DOCKER_GID=${gid}" >> "${env_file}"
+            info "Appended DOCKER_GID=${gid} to .env"
+        fi
+    fi
+    export DOCKER_SOCK_GID="${gid}"
 }
 
 # ── Check / install Docker ────────────────────────────────────────────────────
@@ -164,9 +196,10 @@ else
         mkdir -p /usr/local/lib/docker/cli-plugins
         install_docker_compose_standalone
     fi
-
-    add_user_to_docker_group
 fi
+
+add_user_to_docker_group
+configure_docker_gid
 
 # ── Check python3 (needed for secret generation) ─────────────────────────────
 command -v python3 >/dev/null 2>&1 || fatal "python3 not found. Install python3 and re-run."
@@ -219,6 +252,8 @@ AUDIT_RETENTION_DAYS=365
 
 CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
 CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/2
+
+DOCKER_GID=${DOCKER_SOCK_GID:-999}
 ENVEOF
 
     info ".env generated."
