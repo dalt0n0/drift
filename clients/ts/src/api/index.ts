@@ -105,7 +105,9 @@ export const downloadReport = async (
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `drift_${reportType}_${engagementId}.${format}`
+  const disposition = res.headers.get('Content-Disposition') || ''
+  const match = disposition.match(/filename="?([^";\s]+)"?/)
+  a.download = match?.[1] ?? `drift_${reportType}_${engagementId}.${format}`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
@@ -121,7 +123,7 @@ export const getAudit = (limit = 50) =>
 
 // ── SBOM ──────────────────────────────────────────────────────────────
 export const getSbomSummary = () =>
-  api.get('/sbom').then(r => r.data)
+  api.get('/sbom/summary').then(r => r.data)
 
 // ── Users ─────────────────────────────────────────────────────────────
 export const getUsers = () =>

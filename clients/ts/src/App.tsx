@@ -13,8 +13,8 @@ import Vault from './screens/Vault'
 import Audit from './screens/Audit'
 import Report from './screens/Report'
 import Settings from './screens/Settings'
-import { getEngagements, getMe } from './api'
-import type { Engagement } from './types'
+import { getEngagements, getMe, getOrganizations } from './api'
+import type { Engagement, Organization } from './types'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('drift.token')
@@ -33,6 +33,9 @@ function AppShell() {
   const [engagementId, setEngagementId] = useState<string | null>(
     () => localStorage.getItem('drift.engagementId')
   )
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(
+    () => localStorage.getItem('drift.orgId')
+  )
   const [railOpen, setRailOpen] = useState(false)
   const [newEngOpen, setNewEngOpen] = useState(false)
 
@@ -42,9 +45,18 @@ function AppShell() {
     queryFn: getEngagements,
     staleTime: 30_000,
   })
+  const { data: organizations = [] } = useQuery<Organization[]>({
+    queryKey: ['organizations'],
+    queryFn: getOrganizations,
+    staleTime: 60_000,
+  })
+
+  const orgEngagements = selectedOrgId
+    ? engagements.filter(e => e.organization_id === selectedOrgId)
+    : engagements
 
   const engagement: Engagement | null =
-    engagements.find(e => e.id === engagementId) ?? engagements[0] ?? null
+    orgEngagements.find(e => e.id === engagementId) ?? orgEngagements[0] ?? null
 
   useEffect(() => {
     if (engagement && engagement.id !== engagementId) {
@@ -52,6 +64,14 @@ function AppShell() {
     }
     if (engagement) localStorage.setItem('drift.engagementId', engagement.id)
   }, [engagement, engagementId])
+
+  const handleSelectOrg = (orgId: string | null) => {
+    setSelectedOrgId(orgId)
+    if (orgId) localStorage.setItem('drift.orgId', orgId)
+    else localStorage.removeItem('drift.orgId')
+    setEngagementId(null)
+    localStorage.removeItem('drift.engagementId')
+  }
 
   const screenFromPath = (): Screen => {
     const p = location.pathname
@@ -82,7 +102,11 @@ function AppShell() {
   return (
     <Shell
       user={user ?? null}
-      engagements={engagements}
+      engagements={orgEngagements}
+      allEngagements={engagements}
+      organizations={organizations}
+      selectedOrgId={selectedOrgId}
+      onSelectOrg={handleSelectOrg}
       selectedEngagement={engagement}
       onSelectEngagement={e => { setEngagementId(e.id); localStorage.setItem('drift.engagementId', e.id) }}
       screen={screenFromPath()}

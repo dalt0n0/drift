@@ -13,7 +13,6 @@ interface Props {
 export default function NewEngagementModal({ open, onClose, onCreated }: Props) {
   const qc = useQueryClient()
   const [title, setTitle] = useState('')
-  const [clientName, setClientName] = useState('')
   const [description, setDescription] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -44,7 +43,7 @@ export default function NewEngagementModal({ open, onClose, onCreated }: Props) 
   })
 
   const reset = () => {
-    setTitle(''); setClientName(''); setDescription('')
+    setTitle(''); setDescription('')
     setStartDate(''); setEndDate(''); setOrganizationId('')
     setNewOrgName(''); setCreatingOrg(false); setError(null)
   }
@@ -52,7 +51,6 @@ export default function NewEngagementModal({ open, onClose, onCreated }: Props) 
   const mutation = useMutation({
     mutationFn: () => createEngagement({
       title: title.trim(),
-      client_name: clientName.trim(),
       description: description.trim() || undefined,
       start_date: startDate ? new Date(startDate).toISOString() : undefined,
       end_date: endDate ? new Date(endDate).toISOString() : undefined,
@@ -73,7 +71,7 @@ export default function NewEngagementModal({ open, onClose, onCreated }: Props) 
   const submit = () => {
     setError(null)
     if (!title.trim()) { setError('Title is required'); return }
-    if (!clientName.trim()) { setError('Client name is required'); return }
+    if (!organizationId) { setError('Organization is required'); return }
     mutation.mutate()
   }
 
@@ -83,16 +81,10 @@ export default function NewEngagementModal({ open, onClose, onCreated }: Props) 
         <FieldRow label="Title">
           <Input value={title} onChange={setTitle} placeholder="e.g. Q2 External Pentest" autoFocus />
         </FieldRow>
-        <FieldRow label="Client name">
-          <Input value={clientName} onChange={setClientName} placeholder="e.g. Acme Corp" />
-        </FieldRow>
-        <FieldRow label="Description">
-          <Textarea value={description} onChange={setDescription} placeholder="Optional notes about scope, goals, or context…" rows={3} />
-        </FieldRow>
-        <FieldRow label="Organization">
+        <FieldRow label="Organization *">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <Select value={organizationId} onChange={setOrganizationId}>
-              <option value="">— None —</option>
+              <option value="">— Select organization —</option>
               {organizations.map(o => (
                 <option key={o.id} value={o.id}>{o.name}</option>
               ))}
@@ -128,6 +120,9 @@ export default function NewEngagementModal({ open, onClose, onCreated }: Props) 
               </button>
             )}
           </div>
+        </FieldRow>
+        <FieldRow label="Description">
+          <Textarea value={description} onChange={setDescription} placeholder="Optional notes about scope, goals, or context…" rows={3} />
         </FieldRow>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <FieldRow label="Start date">

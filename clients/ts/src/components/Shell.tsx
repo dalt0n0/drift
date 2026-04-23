@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { Ic } from './Icon'
 import { Avatar, IconButton } from './primitives'
-import type { Engagement, User } from '../types'
+import type { Engagement, Organization, User } from '../types'
 
 // ── Sidebar ───────────────────────────────────────────────────────────
 const navMain = [
@@ -57,12 +57,16 @@ interface SidebarProps {
   engagement: Engagement | null
   engagements: Engagement[]
   onSwitchEngagement: (id: string) => void
+  organizations: Organization[]
+  selectedOrgId: string | null
+  onSelectOrg: (orgId: string | null) => void
   user: User | null
   findingsCount: number
   onSignOut: () => void
 }
 
-export function Sidebar({ current, onNav, engagement, engagements, onSwitchEngagement, user, findingsCount, onSignOut }: SidebarProps) {
+export function Sidebar({ current, onNav, engagement, engagements, onSwitchEngagement, organizations, selectedOrgId, onSelectOrg, user, findingsCount, onSignOut }: SidebarProps) {
+  const [orgOpen, setOrgOpen] = useState(false)
   const [engOpen, setEngOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
@@ -78,7 +82,9 @@ export function Sidebar({ current, onNav, engagement, engagements, onSwitchEngag
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [userMenuOpen])
 
-  const initials = engagement?.client_name?.slice(0, 2).toUpperCase() || engagement?.title?.slice(0, 2).toUpperCase() || '??'
+  const selectedOrg = organizations.find(o => o.id === selectedOrgId) || null
+  const orgInitials = selectedOrg?.name?.slice(0, 2).toUpperCase() || 'AL'
+  const engInitials = engagement?.title?.slice(0, 2).toUpperCase() || '??'
 
   return (
     <aside style={{
@@ -108,10 +114,10 @@ export function Sidebar({ current, onNav, engagement, engagements, onSwitchEngag
         </div>
       </div>
 
-      {/* Engagement switcher */}
+      {/* Organization switcher */}
       <div style={{ padding: '10px 10px 0', position: 'relative' }}>
         <button
-          onClick={() => setEngOpen(!engOpen)}
+          onClick={() => { setOrgOpen(!orgOpen); setEngOpen(false) }}
           style={{
             width: '100%', textAlign: 'left', padding: '8px 10px',
             background: 'var(--bg-2)', border: '1px solid var(--line)',
@@ -124,16 +130,74 @@ export function Sidebar({ current, onNav, engagement, engagements, onSwitchEngag
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 600,
             border: '1px solid var(--accent-line)',
-          }}>{initials}</div>
+          }}>{orgInitials}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12.5, color: 'var(--text)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {engagement?.client_name || engagement?.title || 'No engagement'}
+              {selectedOrg?.name || 'All organizations'}
             </div>
-            <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
+            <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>organization</div>
+          </div>
+          <Ic name="chevDown" size={13} />
+        </button>
+
+        {orgOpen && (
+          <div style={{
+            position: 'absolute', top: '100%', left: 10, right: 10, zIndex: 50,
+            background: 'var(--bg-1)', border: '1px solid var(--line-2)',
+            borderRadius: 8, boxShadow: 'var(--shadow-lg)', overflow: 'hidden',
+            marginTop: 4,
+          }}>
+            <button onClick={() => { onSelectOrg(null); setOrgOpen(false) }} style={{
+              width: '100%', textAlign: 'left', padding: '9px 12px',
+              display: 'flex', alignItems: 'center', gap: 8,
+              borderBottom: '1px solid var(--line)',
+            }} className="hover-row">
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 500 }}>All organizations</div>
+              </div>
+              {!selectedOrgId && <Ic name="check" size={13} style={{ color: 'var(--accent)' }} />}
+            </button>
+            {organizations.map(o => (
+              <button key={o.id} onClick={() => { onSelectOrg(o.id); setOrgOpen(false) }} style={{
+                width: '100%', textAlign: 'left', padding: '9px 12px',
+                display: 'flex', alignItems: 'center', gap: 8,
+                borderBottom: '1px solid var(--line)',
+              }} className="hover-row">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.name}</div>
+                </div>
+                {o.id === selectedOrgId && <Ic name="check" size={13} style={{ color: 'var(--accent)' }} />}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Engagement switcher */}
+      <div style={{ padding: '6px 10px 0', position: 'relative' }}>
+        <button
+          onClick={() => { setEngOpen(!engOpen); setOrgOpen(false) }}
+          style={{
+            width: '100%', textAlign: 'left', padding: '7px 10px',
+            background: 'transparent', border: '1px solid var(--line)',
+            borderRadius: 7, display: 'flex', alignItems: 'center', gap: 9,
+          }}
+        >
+          <div style={{
+            width: 20, height: 20, borderRadius: 4,
+            background: 'var(--bg-3)', color: 'var(--text-2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 600,
+          }}>{engInitials}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {engagement?.title || 'No engagement'}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
               {engagement?.status || '—'}
             </div>
           </div>
-          <Ic name="chevDown" size={13} />
+          <Ic name="chevDown" size={12} />
         </button>
 
         {engOpen && (
@@ -151,7 +215,7 @@ export function Sidebar({ current, onNav, engagement, engagements, onSwitchEngag
               }} className="hover-row">
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {e.client_name || e.title}
+                    {e.title}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>{e.status}</div>
                 </div>
@@ -347,6 +411,10 @@ const BREADCRUMBS: Record<Screen, string[]> = {
 interface ShellProps {
   user: User | null
   engagements: Engagement[]
+  allEngagements?: Engagement[]
+  organizations: Organization[]
+  selectedOrgId: string | null
+  onSelectOrg: (orgId: string | null) => void
   selectedEngagement: Engagement | null
   onSelectEngagement: (e: Engagement) => void
   screen: Screen
@@ -358,7 +426,7 @@ interface ShellProps {
   findingsCount?: number
 }
 
-export function Shell({ user, engagements, selectedEngagement, onSelectEngagement, screen, onNav, railOpen, onToggleRail, onSignOut, children, findingsCount = 0 }: ShellProps) {
+export function Shell({ user, engagements, organizations, selectedOrgId, onSelectOrg, selectedEngagement, onSelectEngagement, screen, onNav, railOpen, onToggleRail, onSignOut, children, findingsCount = 0 }: ShellProps) {
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Sidebar
@@ -370,6 +438,9 @@ export function Shell({ user, engagements, selectedEngagement, onSelectEngagemen
           const e = engagements.find(e => e.id === id)
           if (e) onSelectEngagement(e)
         }}
+        organizations={organizations}
+        selectedOrgId={selectedOrgId}
+        onSelectOrg={onSelectOrg}
         user={user}
         findingsCount={findingsCount}
         onSignOut={onSignOut}

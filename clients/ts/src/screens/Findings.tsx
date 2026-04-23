@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Ic } from '../components/Icon'
 import { Avatar, Button, Card, EmptyState, FieldRow, IconButton, Input, Modal, Select, SevPill, Spinner, StatusPill, Tag, Textarea } from '../components/primitives'
-import { getFindings, createFinding, updateFinding, deleteFinding, acceptFinding, rejectFinding } from '../api'
+import { getFindings, createFinding, updateFinding, deleteFinding, acceptFinding, rejectFinding, downloadReport } from '../api'
 import type { Engagement, Finding, FindingSeverity, FindingStatus } from '../types'
 
 interface Props { engagement: Engagement | null }
@@ -328,6 +328,18 @@ export default function Findings({ engagement }: Props) {
   const [filter, setFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [newOpen, setNewOpen] = useState(false)
+  const [csvPending, setCsvPending] = useState(false)
+
+  const handleCsvDownload = async () => {
+    if (!engagement) return
+    const token = localStorage.getItem('drift.token') || ''
+    setCsvPending(true)
+    try {
+      await downloadReport(engagement.id, 'technical', 'csv', token)
+    } finally {
+      setCsvPending(false)
+    }
+  }
 
   const { data: findings = [], isLoading } = useQuery({
     queryKey: ['findings', engagement?.id],
@@ -369,7 +381,12 @@ export default function Findings({ engagement }: Props) {
         <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid var(--line)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ fontSize: 14, fontWeight: 600 }}>Findings</div>
-            <Button variant="primary" size="sm" icon={<Ic name="plus" size={13} />} onClick={() => setNewOpen(true)}>New</Button>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <Button variant="ghost" size="sm" icon={<Ic name="download" size={13} />} onClick={handleCsvDownload} disabled={csvPending}>
+                {csvPending ? '…' : 'CSV'}
+              </Button>
+              <Button variant="primary" size="sm" icon={<Ic name="plus" size={13} />} onClick={() => setNewOpen(true)}>New</Button>
+            </div>
           </div>
           {/* Search */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', height: 30, background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 6, color: 'var(--text-3)', fontSize: 12 }}>

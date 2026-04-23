@@ -13,7 +13,7 @@ from pydantic import BaseModel, field_validator
 
 class EngagementCreateRequest(BaseModel):
     title: str
-    client_name: str
+    client_name: str = ""
     description: str | None = None
     start_date: datetime | None = None
     end_date: datetime | None = None
