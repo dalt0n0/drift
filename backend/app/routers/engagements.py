@@ -73,17 +73,10 @@ async def list_engagements(
     organization_id: uuid.UUID | None = Query(None),
 ):
     """List engagements visible to the current user."""
-    require_role(current_user.role, Role.tester)
+    require_role(current_user.role, Role.viewer)
 
     query = select(Engagement)
     count_query = select(func.count(Engagement.id))
-
-    # Non-admins only see their own engagements
-    from app.core.permissions import role_from_str
-    user_role = role_from_str(current_user.role)
-    if user_role < Role.lead:
-        query = query.where(Engagement.owner_id == current_user.id)
-        count_query = count_query.where(Engagement.owner_id == current_user.id)
 
     if status_filter:
         query = query.where(Engagement.status == status_filter)
@@ -118,7 +111,7 @@ async def get_engagement(
     db: DB,
 ):
     """Get a single engagement by ID."""
-    require_role(current_user.role, Role.tester)
+    require_role(current_user.role, Role.viewer)
 
     result = await db.execute(
         select(Engagement).where(Engagement.id == engagement_id)
@@ -132,20 +125,6 @@ async def get_engagement(
                 "title": "Not Found",
                 "status": 404,
                 "detail": "Engagement not found.",
-            },
-        )
-
-    # Access check: tester can only view own engagements
-    from app.core.permissions import role_from_str
-    user_role = role_from_str(current_user.role)
-    if user_role < Role.lead and engagement.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "type": "about:blank",
-                "title": "Forbidden",
-                "status": 403,
-                "detail": "Access denied.",
             },
         )
 

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Ic } from '../components/Icon'
-import { Button, Card, EmptyState, FieldRow, Input, Modal, Select, SectionHeader, Spinner, Tag } from '../components/primitives'
+import { Button, Card, EmptyState, FieldRow, IconButton, Input, Modal, Select, SectionHeader, Spinner, Tag } from '../components/primitives'
 import { getMe, getSbomSummary, getUsers, createUser, updateUser, deleteUser } from '../api'
 import type { Role, User } from '../types'
 
@@ -105,7 +105,7 @@ function EditUserModal({ user: target, onClose, isAdmin }: { user: User; onClose
   const qc = useQueryClient()
   const [fullName, setFullName] = useState(target.full_name || '')
   const [email, setEmail] = useState(target.email || '')
-  const [role, setRole] = useState(target.role || 'viewer')
+  const [role, setRole] = useState<string>(target.role || 'viewer')
   const [isActive, setIsActive] = useState(target.is_active)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
