@@ -166,6 +166,52 @@ async def get_run(
     return run
 
 
+@router.post(
+    "/runs/{run_id}/retry",
+    response_model=RunResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def retry_run(
+    run_id: uuid.UUID,
+    request: Request,
+    current_user: CurrentUser,
+    db: DB,
+    background_tasks: BackgroundTasks,
+):
+    """Create a fresh run with the same plugin/params configuration."""
+    require_role(current_user.role, Role.tester)
+
+    orch = OrchestratorService(db)
+    try:
+        run = await orch.retry_run(run_id, triggered_by=current_user.id)
+    except AuthorizationNotConfirmedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "type": "about:blank",
+                "title": "Authorization Required",
+                "status": 403,
+                "detail": str(e),
+            },
+        )
+
+    await audit_svc.log(
+        db,
+        action="run.retry",
+        actor_id=current_user.id,
+        actor_ip=audit_svc.get_client_ip(request),
+        resource_type="engagement_run",
+        resource_id=str(run.id),
+        after_state={"retried_from": str(run_id)},
+        request_id=request.headers.get("x-request-id"),
+    )
+
+    from app.services.run_executor import execute_run
+    background_tasks.add_task(execute_run, run.id)
+
+    return run
+
+
 @router.post("/runs/{run_id}/resume", response_model=RunResponse)
 async def resume_run(
     run_id: uuid.UUID,

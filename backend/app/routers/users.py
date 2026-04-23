@@ -10,7 +10,7 @@ from app.core import audit as audit_svc
 from app.core.deps import CurrentUser, DB
 from app.core.permissions import Role, require_role
 from app.models.user import User
-from app.schemas.user import UserResponse, UserUpdateRequest, UserCreateRequest
+from app.schemas.user import UserResponse, UserUpdateRequest, AdminUserUpdateRequest, UserCreateRequest
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/users", tags=["users"])
@@ -89,7 +89,7 @@ async def get_user(user_id: uuid.UUID, current_user: CurrentUser, db: DB):
 
 @router.patch("/{user_id}", response_model=UserResponse)
 async def update_user(
-    user_id: uuid.UUID, body: UserUpdateRequest,
+    user_id: uuid.UUID, body: AdminUserUpdateRequest,
     request: Request, current_user: CurrentUser, db: DB,
 ):
     is_self = str(current_user.id) == str(user_id)
@@ -113,6 +113,11 @@ async def update_user(
     if body.is_active is not None:
         require_role(current_user.role, Role.admin)
         user.is_active = body.is_active
+    if body.password is not None:
+        require_role(current_user.role, Role.admin)
+        from argon2 import PasswordHasher
+        user.hashed_password = PasswordHasher().hash(body.password)
+        user.must_change_password = True
 
     after = {"full_name": user.full_name, "email": user.email, "role": user.role, "is_active": user.is_active}
     await audit_svc.log(

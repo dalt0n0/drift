@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Ic } from '../components/Icon'
 import { Button, Card, EmptyState, FieldRow, Input, Modal, Select, SectionHeader, Spinner, Tag } from '../components/primitives'
-import { getMe, getSbomSummary, getUsers, createUser } from '../api'
-import type { Role } from '../types'
+import { getMe, getSbomSummary, getUsers, createUser, updateUser, deleteUser } from '../api'
+import type { Role, User } from '../types'
 
 const ELEVATED_ROLES: Role[] = ['lead', 'operator', 'admin']
 
@@ -101,14 +101,100 @@ function NewUserModal({ open, onClose }: { open: boolean; onClose: () => void })
   )
 }
 
+function EditUserModal({ user: target, onClose, isAdmin }: { user: User; onClose: () => void; isAdmin: boolean }) {
+  const qc = useQueryClient()
+  const [fullName, setFullName] = useState(target.full_name || '')
+  const [email, setEmail] = useState(target.email || '')
+  const [role, setRole] = useState(target.role || 'viewer')
+  const [isActive, setIsActive] = useState(target.is_active)
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const mutation = useMutation({
+    mutationFn: () => updateUser(target.id, {
+      full_name: fullName.trim() || undefined,
+      email: email.trim() || undefined,
+      role: isAdmin ? role : undefined,
+      is_active: isAdmin ? isActive : undefined,
+      password: isAdmin && password ? password : undefined,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      onClose()
+    },
+    onError: (err: any) => {
+      const detail = err?.response?.data?.detail
+      setError(typeof detail === 'string' ? detail : 'Failed to update user')
+    },
+  })
+
+  return (
+    <Modal open onClose={onClose} title={`Edit ${target.username}`} width={480}>
+      <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <FieldRow label="Full name">
+          <Input value={fullName} onChange={setFullName} placeholder="Jane Doe" autoFocus />
+        </FieldRow>
+        <FieldRow label="Email">
+          <Input value={email} onChange={setEmail} placeholder="user@example.com" type="email" />
+        </FieldRow>
+        {isAdmin && (
+          <>
+            <FieldRow label="Role">
+              <Select value={role} onChange={setRole}>
+                {['viewer', 'tester', 'lead', 'operator', 'admin'].map(r => (
+                  <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                ))}
+              </Select>
+            </FieldRow>
+            <FieldRow label="Set password">
+              <Input value={password} onChange={setPassword} placeholder="Leave blank to keep current" type="password" />
+            </FieldRow>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="checkbox"
+                id="is-active"
+                checked={isActive}
+                onChange={e => setIsActive(e.target.checked)}
+                style={{ width: 16, height: 16, cursor: 'pointer' }}
+              />
+              <label htmlFor="is-active" style={{ fontSize: 13, color: 'var(--text-2)', cursor: 'pointer' }}>
+                Account active
+              </label>
+            </div>
+          </>
+        )}
+        {error && (
+          <div style={{ padding: '8px 10px', background: 'rgba(255,74,94,0.08)', border: '1px solid rgba(255,74,94,0.3)', borderRadius: 6, color: '#ff8a99', fontSize: 12 }}>
+            {error}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+          <Button variant="ghost" onClick={onClose} disabled={mutation.isPending}>Cancel</Button>
+          <Button variant="primary" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+            {mutation.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 export default function Settings() {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const [tab, setTab] = useState<'general' | 'sbom' | 'team'>('general')
   const [newUserOpen, setNewUserOpen] = useState(false)
+  const [editUser, setEditUser] = useState<User | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
   const { data: user } = useQuery({ queryKey: ['me'], queryFn: getMe })
   const { data: sbom } = useQuery({ queryKey: ['sbom'], queryFn: getSbomSummary })
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['users'], queryFn: getUsers, enabled: tab === 'team',
+  })
+
+  const delMutation = useMutation({
+    mutationFn: (userId: string) => deleteUser(userId),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); setDeleteTarget(null) },
   })
 
   const hasTeamAccess = user && ELEVATED_ROLES.includes(user.role as Role)
@@ -257,6 +343,25 @@ export default function Settings() {
                     </div>
                     <Tag tone={u.role === 'admin' ? 'accent' : 'neutral'}>{u.role}</Tag>
                     <div style={{ width: 7, height: 7, borderRadius: 999, background: u.is_active ? 'var(--ok)' : 'var(--text-4)' }} title={u.is_active ? 'Active' : 'Inactive'} />
+                    {user?.role === 'admin' && (
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <IconButton icon={<Ic name="edit" size={13} />} size={24} onClick={() => setEditUser(u)} title="Edit user" />
+                        {u.id !== user.id && (
+                          deleteTarget?.id === u.id ? (
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              <button onClick={() => delMutation.mutate(u.id)} disabled={delMutation.isPending} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, background: 'rgba(255,74,94,0.15)', color: 'var(--crit)', cursor: 'pointer' }}>
+                                {delMutation.isPending ? '…' : 'Confirm'}
+                              </button>
+                              <button onClick={() => setDeleteTarget(null)} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, background: 'var(--bg-3)', color: 'var(--text-2)', cursor: 'pointer' }}>
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <IconButton icon={<Ic name="trash" size={13} />} size={24} onClick={() => setDeleteTarget(u)} title="Delete user" style={{ color: 'var(--crit)' }} />
+                          )
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </Card>
@@ -265,6 +370,13 @@ export default function Settings() {
         )}
       </div>
       <NewUserModal open={newUserOpen} onClose={() => setNewUserOpen(false)} />
+      {editUser && (
+        <EditUserModal
+          user={editUser}
+          onClose={() => setEditUser(null)}
+          isAdmin={user?.role === 'admin'}
+        />
+      )}
     </div>
   )
 }

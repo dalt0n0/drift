@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Ic } from '../components/Icon'
 import { Button, Card, EmptyState, FieldRow, Input, Modal, Select, Spinner, Tag } from '../components/primitives'
-import { getRuns, createRun, confirmAuthorization, cancelRun, deleteRun } from '../api'
+import { getRuns, createRun, confirmAuthorization, cancelRun, retryRun, deleteRun } from '../api'
 import type { Engagement, EngagementRun } from '../types'
 
 interface Props { engagement: Engagement | null }
@@ -117,13 +117,19 @@ function RunDetail({ run, engagementId, onMutate }: { run: EngagementRun; engage
     onSuccess: onMutate,
   })
 
+  const retry = useMutation({
+    mutationFn: () => retryRun(run.id),
+    onSuccess: onMutate,
+  })
+
   const del = useMutation({
     mutationFn: () => deleteRun(run.id),
     onSuccess: onMutate,
   })
 
   const canCancel = run.status === 'pending' || run.status === 'running'
-  const canDelete = run.status === 'completed' || run.status === 'failed' || run.status === 'cancelled'
+  const canRetry = run.status === 'failed' || run.status === 'error' || run.status === 'cancelled'
+  const canDelete = run.status === 'completed' || run.status === 'failed' || run.status === 'cancelled' || run.status === 'error'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -160,6 +166,12 @@ function RunDetail({ run, engagementId, onMutate }: { run: EngagementRun; engage
               <Button variant="secondary" size="sm" icon={<Ic name="x" size={12} />}
                 onClick={() => cancel.mutate()} disabled={cancel.isPending}>
                 {cancel.isPending ? 'Cancelling…' : 'Cancel'}
+              </Button>
+            )}
+            {canRetry && (
+              <Button variant="secondary" size="sm" icon={<Ic name="refresh" size={12} />}
+                onClick={() => retry.mutate()} disabled={retry.isPending}>
+                {retry.isPending ? 'Retrying…' : 'Retry'}
               </Button>
             )}
             {canDelete && (

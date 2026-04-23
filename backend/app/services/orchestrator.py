@@ -155,6 +155,27 @@ class OrchestratorService:
 
         return run
 
+    async def retry_run(self, run_id: uuid.UUID, triggered_by: uuid.UUID) -> EngagementRun:
+        """Create a fresh run with the same configuration as an existing run."""
+        original = await self._get_run(run_id)
+        if not original.pipeline_config:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "type": "about:blank",
+                    "title": "Bad Request",
+                    "status": 400,
+                    "detail": "Cannot retry a run with no pipeline configuration.",
+                },
+            )
+        return await self.create_run(
+            engagement_id=original.engagement_id,
+            triggered_by=triggered_by,
+            plugin_names=original.pipeline_config.get("plugins"),
+            safe_mode=original.pipeline_config.get("safe_mode", False),
+            params=original.pipeline_config.get("params"),
+        )
+
     async def resume_run(self, run_id: uuid.UUID) -> EngagementRun:
         """Resume a paused or failed run from its last checkpoint."""
         run = await self._get_run(run_id)

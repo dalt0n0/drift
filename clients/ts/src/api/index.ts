@@ -85,6 +85,9 @@ export const confirmAuthorization = (engagementId: string) =>
 export const cancelRun = (runId: string) =>
   api.post<EngagementRun>(`/runs/${runId}/cancel`).then(r => r.data)
 
+export const retryRun = (runId: string) =>
+  api.post<EngagementRun>(`/runs/${runId}/retry`).then(r => r.data)
+
 export const deleteRun = (runId: string) =>
   api.delete(`/runs/${runId}`)
 
@@ -137,6 +140,17 @@ export const createUser = (body: {
   role?: string
   must_change_password?: boolean
 }) => api.post<User>('/users/', body).then(r => r.data)
+
+export const updateUser = (userId: string, body: {
+  full_name?: string
+  email?: string
+  role?: string
+  is_active?: boolean
+  password?: string
+}) => api.patch<User>(`/users/${userId}`, body).then(r => r.data)
+
+export const deleteUser = (userId: string) =>
+  api.delete(`/users/${userId}`)
 
 // ── Organizations ─────────────────────────────────────────────────────
 export const getOrganizations = (): Promise<Organization[]> =>
