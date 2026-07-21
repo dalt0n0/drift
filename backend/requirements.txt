@@ -22,6 +22,6 @@ structlog==24.2.0
 opentelemetry-sdk==1.24.0
 opentelemetry-instrumentation-fastapi==0.45b0
 qrcode[pil]==7.4.2
-Pillow==10.3.0
+Pillow==12.3.0
 weasyprint==62.3
 Jinja2==3.1.4
